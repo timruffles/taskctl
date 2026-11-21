@@ -271,7 +271,7 @@ Restore creates a **new project** and leaves the source intact. It preserves tas
 
 Use `taskctl --help` for exact operation names and flags. Commands reject unknown flags. With `--json`, data goes to stdout and structured errors to stderr. Exit codes are 0 success, 1 operational failure, 2 invalid input, 3 conflict or busy, 4 cancelled watched work, 5 timeout, and 130 interrupted watch.
 
-- [Agent skill](skills/taskctl/SKILL.md): the worker procedure and conditional references.
+- [Agent skill](skills/taskctl/SKILL.md): activation conditions and links to instructions for the operation at hand.
 - [Design](docs/DESIGN.md) and [decisions](docs/adr/): states, concurrency and notification semantics.
 - [Performance](docs/PERFORMANCE.md): measured scaling, memory use and limits.
 - [Validation](docs/VALIDATION.md) and [chaos testing](docs/CHAOS_VALIDATION.md): test evidence and remaining limits.
