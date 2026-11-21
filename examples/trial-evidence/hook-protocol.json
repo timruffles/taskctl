@@ -1,0 +1,22 @@
+{
+  "delivery_mode": "synthetic hook JSON executed against real trial database; native Codex hook engine not involved",
+  "deliveries": [
+    {
+      "context": "Task notifications for T1 (S916f48af23e7a26be6cbd896e525457b):\n- E13 T3 metadata_changed: \"Set metadata agent_session_id\"\n- E14 T2 progress: \"Implemented Stats and Analyze per contract; added table cases for empty, ASCII, Unicode whitespace/runes, newline counts, CRLF and malformed UTF-8. Verification remains.\"\n- E15 T2 superseded: \"Implemented Stats and Analyze in analyze.go with strings.Fields word counting, LF-based line counting, and utf8.RuneCountInString rune counting. Added table tests in analyze_test.go for empty input, ASCII, Unicode whitespace, trailing an\u2026\"\n- E16 T5 created: \"Verify Analyze edge cases\"\n- E17 T5 claimed: \"Continued by /root/luna_core\"\nMore events are pending; this acknowledgement covers only the displayed page.\nAfter reading, acknowledge this delivery:\n'/workspace/scratch/eb95195a621a/taskctl-trial/taskctl' --project 'Pdedff04763c5cda1' subscriptions acknowledge 'S916f48af23e7a26be6cbd896e525457b' --session 'trial-coordinator' --token 'D7687d3d6ba8a22e7684df778abba14d4' --through 17\n",
+      "context_bytes": 1027,
+      "ack": {
+        "acknowledged_through": 17,
+        "subscription_id": "S916f48af23e7a26be6cbd896e525457b"
+      }
+    },
+    {
+      "context": "Task notifications for T1 (S916f48af23e7a26be6cbd896e525457b):\n- E18 T5 completed: \"Implemented Stats and Analyze in analyze.go and table tests in analyze_test.go for empty/ASCII input, Unicode whitespace and runes, line endings, CRLF, and invalid UTF-8. Required command `env TMPDIR=/workspace/scratch/eb95195a621a/tooli\u2026\"\n- E19 T3 progress: \"Implemented JSON CLI with stdin/file/-- handling, help and usage/read error exits; added CLI coverage and README. Requested go test ./cmd/textstats passes.\"\n- E20 T3 completed: \"Implemented cmd/textstats CLI and tests plus README. Verified with env TMPDIR=/workspace/scratch/eb95195a621a/tooling/tmp GOCACHE=/dev/shm/taskctl-go-cache go test ./cmd/textstats: pass.\"\nAfter reading, acknowledge this delivery:\n'/workspace/scratch/eb95195a621a/taskctl-trial/taskctl' --project 'Pdedff04763c5cda1' subscriptions acknowledge 'S916f48af23e7a26be6cbd896e525457b' --session 'trial-coordinator' --token 'D51c321db8d86bd1995ead3b4627e02e8' --through 20\n",
+      "context_bytes": 989,
+      "ack": {
+        "acknowledged_through": 20,
+        "subscription_id": "S916f48af23e7a26be6cbd896e525457b"
+      }
+    }
+  ],
+  "quiet_stdout_bytes": 0
+}

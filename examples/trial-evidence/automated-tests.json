@@ -1,0 +1,39 @@
+{
+  "command": "go test -race -p 1 -json ./...",
+  "go_version": "go1.27.4",
+  "packages": [
+    {
+      "name": "taskctl/cmd/taskctl",
+      "elapsed_seconds": 1.5699999999999998,
+      "tests": 3
+    },
+    {
+      "name": "taskctl/internal/codex",
+      "elapsed_seconds": 2.007,
+      "tests": 7
+    },
+    {
+      "name": "taskctl/internal/project",
+      "elapsed_seconds": 1.019,
+      "tests": 2
+    },
+    {
+      "name": "taskctl/internal/scratch",
+      "elapsed_seconds": 2.941,
+      "tests": 11
+    },
+    {
+      "name": "taskctl/internal/store",
+      "elapsed_seconds": 5.994,
+      "tests": 31
+    },
+    {
+      "name": "taskctl/tests",
+      "elapsed_seconds": 8.908,
+      "tests": 15
+    }
+  ],
+  "top_level_tests_passed": 69,
+  "failures": [],
+  "vet": "go vet ./... passed"
+}

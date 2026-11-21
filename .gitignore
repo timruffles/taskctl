@@ -1,0 +1,7 @@
+/bin/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.taskctl.json
+__pycache__/
+*.py[cod]

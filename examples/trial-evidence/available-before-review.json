@@ -1,0 +1,18 @@
+{
+  "next_offset": 1,
+  "omitted": 0,
+  "project_id": "Pdedff04763c5cda1",
+  "tasks": [
+    {
+      "id": "T4",
+      "title": "Verify the integrated textstats project",
+      "status": "pending",
+      "origin_id": "T4",
+      "tags": [
+        "review"
+      ],
+      "revision": 1
+    }
+  ],
+  "total": 1
+}

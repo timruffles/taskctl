@@ -1,0 +1,403 @@
+{
+  "format": "taskctl-export",
+  "schema_version": 1,
+  "project_id": "Pdedff04763c5cda1",
+  "tables": {
+    "events": [
+      {
+        "created_at": "2026-11-21T19:36:59.706266800Z",
+        "data": "{\"prerequisites\":[]}",
+        "id": 1,
+        "kind": "created",
+        "message": "Build the textstats library and CLI",
+        "task_id": 1
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.706571862Z",
+        "data": "{}",
+        "id": 2,
+        "kind": "available",
+        "message": "Ready to claim",
+        "task_id": 1
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.724603859Z",
+        "data": "{\"previous_owner\":\"\",\"replacement_ids\":[\"T2\",\"T3\"]}",
+        "id": 3,
+        "kind": "superseded",
+        "message": "Contract fixed in CONTRACT.md. Remaining work is the Analyze library and the CLI with I/O tests. Both can proceed independently against the agreed interface.",
+        "task_id": 1
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.724627754Z",
+        "data": "{\"origin_id\":\"T1\",\"parent_id\":\"T1\"}",
+        "id": 4,
+        "kind": "created",
+        "message": "Implement and test Analyze",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.724638180Z",
+        "data": "{\"origin_id\":\"T1\",\"parent_id\":\"T1\"}",
+        "id": 5,
+        "kind": "created",
+        "message": "Implement and test the textstats CLI",
+        "task_id": 3
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.724819018Z",
+        "data": "{}",
+        "id": 6,
+        "kind": "available",
+        "message": "Ready to claim",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.724838046Z",
+        "data": "{}",
+        "id": 7,
+        "kind": "available",
+        "message": "Ready to claim",
+        "task_id": 3
+      },
+      {
+        "created_at": "2026-11-21T19:36:59.732469325Z",
+        "data": "{\"prerequisites\":[\"T1\"]}",
+        "id": 8,
+        "kind": "created",
+        "message": "Verify the integrated textstats project",
+        "task_id": 4
+      },
+      {
+        "created_at": "2026-11-21T19:37:31.117592469Z",
+        "data": "{\"claim_id\":\"Cbcb4586ba6ecc3211bcb7df4cc7b9b2f\",\"owner\":\"/root/luna_core\"}",
+        "id": 9,
+        "kind": "claimed",
+        "message": "Claimed by /root/luna_core",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:37:35.065478560Z",
+        "data": "{\"key\":\"agent_session_id\",\"value\":\"/root/luna_core\"}",
+        "id": 10,
+        "kind": "metadata_changed",
+        "message": "Set metadata agent_session_id",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:37:35.078941808Z",
+        "data": "{\"area_id\":\"A25f198d03205fd4aa82e1530c5867318\"}",
+        "id": 11,
+        "kind": "scratch_attached",
+        "message": "scratch area attached",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:37:50.285585803Z",
+        "data": "{\"claim_id\":\"Cf2324888157dab0e75a5a809da4e2e09\",\"owner\":\"/root/luna_cli\"}",
+        "id": 12,
+        "kind": "claimed",
+        "message": "Claimed by /root/luna_cli",
+        "task_id": 3
+      },
+      {
+        "created_at": "2026-11-21T19:37:54.202478139Z",
+        "data": "{\"key\":\"agent_session_id\",\"value\":\"/root/luna_cli\"}",
+        "id": 13,
+        "kind": "metadata_changed",
+        "message": "Set metadata agent_session_id",
+        "task_id": 3
+      },
+      {
+        "created_at": "2026-11-21T19:37:59.299737061Z",
+        "data": "{\"owner\":\"/root/luna_core\"}",
+        "id": 14,
+        "kind": "progress",
+        "message": "Implemented Stats and Analyze per contract; added table cases for empty, ASCII, Unicode whitespace/runes, newline counts, CRLF and malformed UTF-8. Verification remains.",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:38:07.133181943Z",
+        "data": "{\"continued_task\":\"T5\",\"previous_owner\":\"/root/luna_core\",\"replacement_ids\":[\"T5\"]}",
+        "id": 15,
+        "kind": "superseded",
+        "message": "Implemented Stats and Analyze in analyze.go with strings.Fields word counting, LF-based line counting, and utf8.RuneCountInString rune counting. Added table tests in analyze_test.go for empty input, ASCII, Unicode whitespace, trailing and multiple newlines, blank line, CRLF, and invalid UTF-8. Remaining work is to run the required Go test command and fix any failures.",
+        "task_id": 2
+      },
+      {
+        "created_at": "2026-11-21T19:38:07.133208242Z",
+        "data": "{\"origin_id\":\"T1\",\"parent_id\":\"T2\"}",
+        "id": 16,
+        "kind": "created",
+        "message": "Verify Analyze edge cases",
+        "task_id": 5
+      },
+      {
+        "created_at": "2026-11-21T19:38:07.133404943Z",
+        "data": "{\"claim_id\":\"Cc683275c24543014e32087a9d0407b7b\",\"owner\":\"/root/luna_core\",\"previous_task\":\"T2\"}",
+        "id": 17,
+        "kind": "claimed",
+        "message": "Continued by /root/luna_core",
+        "task_id": 5
+      },
+      {
+        "created_at": "2026-11-21T19:38:18.328629853Z",
+        "data": "{\"owner\":\"/root/luna_core\"}",
+        "id": 18,
+        "kind": "completed",
+        "message": "Implemented Stats and Analyze in analyze.go and table tests in analyze_test.go for empty/ASCII input, Unicode whitespace and runes, line endings, CRLF, and invalid UTF-8. Required command `env TMPDIR=/workspace/scratch/eb95195a621a/tooling/tmp GOCACHE=/dev/shm/taskctl-go-cache /tmp/taskctl-go-1.27.4/go/bin/go test .` passed (ok example.com/textstats).",
+        "task_id": 5
+      },
+      {
+        "created_at": "2026-11-21T19:38:55.722539951Z",
+        "data": "{\"owner\":\"/root/luna_cli\"}",
+        "id": 19,
+        "kind": "progress",
+        "message": "Implemented JSON CLI with stdin/file/-- handling, help and usage/read error exits; added CLI coverage and README. Requested go test ./cmd/textstats passes.",
+        "task_id": 3
+      },
+      {
+        "created_at": "2026-11-21T19:38:55.731577940Z",
+        "data": "{\"owner\":\"/root/luna_cli\"}",
+        "id": 20,
+        "kind": "completed",
+        "message": "Implemented cmd/textstats CLI and tests plus README. Verified with env TMPDIR=/workspace/scratch/eb95195a621a/tooling/tmp GOCACHE=/dev/shm/taskctl-go-cache go test ./cmd/textstats: pass.",
+        "task_id": 3
+      },
+      {
+        "created_at": "2026-11-21T19:38:55.732125191Z",
+        "data": "{}",
+        "id": 21,
+        "kind": "available",
+        "message": "Ready to claim",
+        "task_id": 4
+      },
+      {
+        "created_at": "2026-11-21T19:39:54.514840961Z",
+        "data": "{\"claim_id\":\"Cdc8e60792e5607c6af812412e560d38d\",\"owner\":\"trial-coordinator\"}",
+        "id": 22,
+        "kind": "claimed",
+        "message": "Claimed by trial-coordinator",
+        "task_id": 4
+      },
+      {
+        "created_at": "2026-11-21T19:39:54.528210194Z",
+        "data": "{\"owner\":\"trial-coordinator\"}",
+        "id": 23,
+        "kind": "progress",
+        "message": "Both Luna branches finished, including the T2 to T5 replacement. Reviewing integrated source and executing CLI fixtures.",
+        "task_id": 4
+      },
+      {
+        "created_at": "2026-11-21T19:39:56.315565672Z",
+        "data": "{\"owner\":\"trial-coordinator\"}",
+        "id": 24,
+        "kind": "completed",
+        "message": "Reviewed both Luna implementations. go test -race ./... passes for library and CLI. Built CLI and verified Unicode stdin, empty stdin, a real leading-hyphen filename via --, missing-file exit 1, and usage exit 2. T4 became available only after T3 and replacement T5 completed.",
+        "task_id": 4
+      }
+    ],
+    "inactivity_marks": [],
+    "metadata": [
+      {
+        "key": "worktree",
+        "task_id": 1,
+        "value": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+      },
+      {
+        "key": "agent_session_id",
+        "task_id": 2,
+        "value": "/root/luna_core"
+      },
+      {
+        "key": "worktree",
+        "task_id": 2,
+        "value": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+      },
+      {
+        "key": "agent_session_id",
+        "task_id": 3,
+        "value": "/root/luna_cli"
+      },
+      {
+        "key": "worktree",
+        "task_id": 3,
+        "value": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+      },
+      {
+        "key": "agent_session_id",
+        "task_id": 5,
+        "value": "/root/luna_core"
+      },
+      {
+        "key": "worktree",
+        "task_id": 5,
+        "value": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+      }
+    ],
+    "prerequisites": [
+      {
+        "prerequisite_id": 1,
+        "task_id": 4
+      }
+    ],
+    "scratch_areas": [
+      {
+        "cleanup_token": null,
+        "created_at": "2026-11-21T19:37:35.078742102Z",
+        "id": "A25f198d03205fd4aa82e1530c5867318",
+        "removed_at": "2026-11-21T19:45:05.615217619Z",
+        "unreferenced_at": "2026-11-21T19:38:18.328662121Z"
+      }
+    ],
+    "scratch_refs": [
+      {
+        "area_id": "A25f198d03205fd4aa82e1530c5867318",
+        "task_id": 2
+      },
+      {
+        "area_id": "A25f198d03205fd4aa82e1530c5867318",
+        "task_id": 5
+      }
+    ],
+    "subscriptions": [
+      {
+        "created_at": "2026-11-21T19:36:59.715832240Z",
+        "cursor": 20,
+        "delivery_mode": "",
+        "delivery_token": "",
+        "id": "S916f48af23e7a26be6cbd896e525457b",
+        "last_ack_through": 20,
+        "last_ack_token": "D51c321db8d86bd1995ead3b4627e02e8",
+        "last_offered_at": "2026-11-21T19:45:05.563610234Z",
+        "lease_until": "",
+        "offered_snapshot": 0,
+        "offered_through": 0,
+        "queue_cursor": 2,
+        "queue_snapshot_pending": 0,
+        "queued_through": 0,
+        "resume_idle": 0,
+        "session": "trial-coordinator",
+        "snapshot_pending": 0,
+        "task_id": 1,
+        "updated_at": "2026-11-21T19:45:05.571458299Z"
+      }
+    ],
+    "tags": [
+      {
+        "tag": "trial",
+        "task_id": 1
+      },
+      {
+        "tag": "library",
+        "task_id": 2
+      },
+      {
+        "tag": "trial",
+        "task_id": 2
+      },
+      {
+        "tag": "cli",
+        "task_id": 3
+      },
+      {
+        "tag": "trial",
+        "task_id": 3
+      },
+      {
+        "tag": "review",
+        "task_id": 4
+      },
+      {
+        "tag": "library",
+        "task_id": 5
+      },
+      {
+        "tag": "trial",
+        "task_id": 5
+      }
+    ],
+    "tasks": [
+      {
+        "brief": "Implement the self-contained contract in examples/textstats/CONTRACT.md. Library and CLI may be developed independently. All work is complete when both pass their tests and the coordinator verifies end-to-end behavior.",
+        "claim_id": "",
+        "created_at": "2026-11-21T19:36:59.705541975Z",
+        "id": 1,
+        "last_activity_at": "2026-11-21T19:36:59.723899836Z",
+        "origin_id": 1,
+        "owner": "",
+        "parent_id": null,
+        "progress": "",
+        "result": "Contract fixed in CONTRACT.md. Remaining work is the Analyze library and the CLI with I/O tests. Both can proceed independently against the agreed interface.",
+        "revision": 2,
+        "status": "superseded",
+        "title": "Build the textstats library and CLI",
+        "updated_at": "2026-11-21T19:36:59.723899836Z"
+      },
+      {
+        "brief": "Read CONTRACT.md. Implement package textstats Analyze and Stats in analyze.go; test empty input, Unicode whitespace, trailing newlines, CRLF and invalid UTF-8 in analyze_test.go. You own only these two files. After the core implementation is in place, supersede this task into a crisp remaining verification task, preserving the completed work in its brief.",
+        "claim_id": "",
+        "created_at": "2026-11-21T19:36:59.723899836Z",
+        "id": 2,
+        "last_activity_at": "2026-11-21T19:38:07.132683003Z",
+        "origin_id": 1,
+        "owner": "",
+        "parent_id": 1,
+        "progress": "Implemented Stats and Analyze per contract; added table cases for empty, ASCII, Unicode whitespace/runes, newline counts, CRLF and malformed UTF-8. Verification remains.",
+        "result": "Implemented Stats and Analyze in analyze.go with strings.Fields word counting, LF-based line counting, and utf8.RuneCountInString rune counting. Added table tests in analyze_test.go for empty input, ASCII, Unicode whitespace, trailing and multiple newlines, blank line, CRLF, and invalid UTF-8. Remaining work is to run the required Go test command and fix any failures.",
+        "revision": 5,
+        "status": "superseded",
+        "title": "Implement and test Analyze",
+        "updated_at": "2026-11-21T19:38:07.132683003Z"
+      },
+      {
+        "brief": "Read CONTRACT.md. Implement cmd/textstats/main.go, cmd/textstats/main_test.go, and README.md. Use textstats.Analyze; the core agent is writing it concurrently. Test stdin, files, JSON, errors and exit codes. You own only these three files. Coordinate via taskctl if waiting on the core implementation.",
+        "claim_id": "",
+        "created_at": "2026-11-21T19:36:59.723899836Z",
+        "id": 3,
+        "last_activity_at": "2026-11-21T19:38:55.731450371Z",
+        "origin_id": 1,
+        "owner": "",
+        "parent_id": 1,
+        "progress": "Implemented JSON CLI with stdin/file/-- handling, help and usage/read error exits; added CLI coverage and README. Requested go test ./cmd/textstats passes.",
+        "result": "Implemented cmd/textstats CLI and tests plus README. Verified with env TMPDIR=/workspace/scratch/eb95195a621a/tooling/tmp GOCACHE=/dev/shm/taskctl-go-cache go test ./cmd/textstats: pass.",
+        "revision": 5,
+        "status": "completed",
+        "title": "Implement and test the textstats CLI",
+        "updated_at": "2026-11-21T19:38:55.731450371Z"
+      },
+      {
+        "brief": "Once all replacements of the original build task are completed, inspect the combined source, run go test ./..., build the CLI and verify Unicode stdin plus file and error paths. Record final evidence and any tracker issues.",
+        "claim_id": "",
+        "created_at": "2026-11-21T19:36:59.732106307Z",
+        "id": 4,
+        "last_activity_at": "2026-11-21T19:39:56.315466034Z",
+        "origin_id": 4,
+        "owner": "",
+        "parent_id": null,
+        "progress": "Both Luna branches finished, including the T2 to T5 replacement. Reviewing integrated source and executing CLI fixtures.",
+        "result": "Reviewed both Luna implementations. go test -race ./... passes for library and CLI. Built CLI and verified Unicode stdin, empty stdin, a real leading-hyphen filename via --, missing-file exit 1, and usage exit 2. T4 became available only after T3 and replacement T5 completed.",
+        "revision": 4,
+        "status": "completed",
+        "title": "Verify the integrated textstats project",
+        "updated_at": "2026-11-21T19:39:56.315466034Z"
+      },
+      {
+        "brief": "Analyze and Stats are implemented in analyze.go; table tests in analyze_test.go cover empty input, ASCII, Unicode whitespace, trailing and multiple newlines, blank line, CRLF and invalid UTF-8. Run env TMPDIR=/workspace/scratch/eb95195a621a/tooling/tmp GOCACHE=/dev/shm/taskctl-go-cache /tmp/taskctl-go-1.27.4/go/bin/go test . from /workspace/scratch/eb95195a621a/taskctl/examples/textstats and fix any failures.",
+        "claim_id": "",
+        "created_at": "2026-11-21T19:38:07.132683003Z",
+        "id": 5,
+        "last_activity_at": "2026-11-21T19:38:18.328504618Z",
+        "origin_id": 1,
+        "owner": "",
+        "parent_id": 2,
+        "progress": "",
+        "result": "Implemented Stats and Analyze in analyze.go and table tests in analyze_test.go for empty/ASCII input, Unicode whitespace and runes, line endings, CRLF, and invalid UTF-8. Required command `env TMPDIR=/workspace/scratch/eb95195a621a/tooling/tmp GOCACHE=/dev/shm/taskctl-go-cache /tmp/taskctl-go-1.27.4/go/bin/go test .` passed (ok example.com/textstats).",
+        "revision": 3,
+        "status": "completed",
+        "title": "Verify Analyze edge cases",
+        "updated_at": "2026-11-21T19:38:18.328504618Z"
+      }
+    ]
+  }
+}

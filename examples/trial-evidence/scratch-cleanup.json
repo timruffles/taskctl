@@ -1,0 +1,49 @@
+{
+  "before": [
+    {
+      "area": {
+        "id": "A25f198d03205fd4aa82e1530c5867318",
+        "created_at": "2026-11-21T19:37:35.078742102Z",
+        "unreferenced_at": "2026-11-21T19:38:18.328662121Z"
+      },
+      "path": "/workspace/scratch/eb95195a621a/taskctl-trial/state/taskctl/scratch/Pdedff04763c5cda1/A25f198d03205fd4aa82e1530c5867318",
+      "state": "retained"
+    }
+  ],
+  "dry_run": [
+    {
+      "area": {
+        "id": "A25f198d03205fd4aa82e1530c5867318",
+        "created_at": "2026-11-21T19:37:35.078742102Z",
+        "unreferenced_at": "2026-11-21T19:38:18.328662121Z"
+      },
+      "path": "/workspace/scratch/eb95195a621a/taskctl-trial/state/taskctl/scratch/Pdedff04763c5cda1/A25f198d03205fd4aa82e1530c5867318",
+      "state": "eligible"
+    }
+  ],
+  "cleanup": [
+    {
+      "area": {
+        "id": "A25f198d03205fd4aa82e1530c5867318",
+        "created_at": "2026-11-21T19:37:35.078742102Z",
+        "unreferenced_at": "2026-11-21T19:38:18.328662121Z",
+        "removed_at": "2026-11-21T19:45:05.615680485Z"
+      },
+      "path": "/workspace/scratch/eb95195a621a/taskctl-trial/state/taskctl/scratch/Pdedff04763c5cda1/A25f198d03205fd4aa82e1530c5867318",
+      "state": "removed",
+      "entries_removed": 3
+    }
+  ],
+  "after": [
+    {
+      "area": {
+        "id": "A25f198d03205fd4aa82e1530c5867318",
+        "created_at": "2026-11-21T19:37:35.078742102Z",
+        "unreferenced_at": "2026-11-21T19:38:18.328662121Z",
+        "removed_at": "2026-11-21T19:45:05.615217619Z"
+      },
+      "path": "/workspace/scratch/eb95195a621a/taskctl-trial/state/taskctl/scratch/Pdedff04763c5cda1/A25f198d03205fd4aa82e1530c5867318",
+      "state": "removed"
+    }
+  ]
+}

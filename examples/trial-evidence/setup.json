@@ -1,0 +1,118 @@
+{
+  "project": {
+    "id": "Pdedff04763c5cda1",
+    "name": "Luna textstats trial",
+    "created_at": "2026-11-21T19:36:59.686065037Z",
+    "database": "/workspace/scratch/eb95195a621a/taskctl-trial/data/taskctl/projects/Pdedff04763c5cda1/tasks.sqlite",
+    "scratch": "/workspace/scratch/eb95195a621a/taskctl-trial/state/taskctl/scratch/Pdedff04763c5cda1"
+  },
+  "original": {
+    "id": "T1",
+    "title": "Build the textstats library and CLI",
+    "brief": "Implement the self-contained contract in examples/textstats/CONTRACT.md. Library and CLI may be developed independently. All work is complete when both pass their tests and the coordinator verifies end-to-end behavior.",
+    "status": "pending",
+    "origin_id": "T1",
+    "parent_id": "",
+    "revision": 1,
+    "owner": "",
+    "claim_id": "",
+    "tags": [
+      "trial"
+    ],
+    "metadata": {
+      "worktree": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+    },
+    "prerequisites": [],
+    "progress": "",
+    "result": "",
+    "created_at": "2026-11-21T19:36:59.705541975Z",
+    "updated_at": "2026-11-21T19:36:59.705541975Z",
+    "last_activity_at": ""
+  },
+  "children": [
+    {
+      "id": "T2",
+      "title": "Implement and test Analyze",
+      "brief": "Read CONTRACT.md. Implement package textstats Analyze and Stats in analyze.go; test empty input, Unicode whitespace, trailing newlines, CRLF and invalid UTF-8 in analyze_test.go. You own only these two files. After the core implementation is in place, supersede this task into a crisp remaining verification task, preserving the completed work in its brief.",
+      "status": "pending",
+      "origin_id": "T1",
+      "parent_id": "T1",
+      "revision": 1,
+      "owner": "",
+      "claim_id": "",
+      "tags": [
+        "library",
+        "trial"
+      ],
+      "metadata": {
+        "worktree": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+      },
+      "prerequisites": [],
+      "progress": "",
+      "result": "",
+      "created_at": "2026-11-21T19:36:59.723899836Z",
+      "updated_at": "2026-11-21T19:36:59.723899836Z",
+      "last_activity_at": ""
+    },
+    {
+      "id": "T3",
+      "title": "Implement and test the textstats CLI",
+      "brief": "Read CONTRACT.md. Implement cmd/textstats/main.go, cmd/textstats/main_test.go, and README.md. Use textstats.Analyze; the core agent is writing it concurrently. Test stdin, files, JSON, errors and exit codes. You own only these three files. Coordinate via taskctl if waiting on the core implementation.",
+      "status": "pending",
+      "origin_id": "T1",
+      "parent_id": "T1",
+      "revision": 1,
+      "owner": "",
+      "claim_id": "",
+      "tags": [
+        "cli",
+        "trial"
+      ],
+      "metadata": {
+        "worktree": "/workspace/scratch/eb95195a621a/taskctl/examples/textstats"
+      },
+      "prerequisites": [],
+      "progress": "",
+      "result": "",
+      "created_at": "2026-11-21T19:36:59.723899836Z",
+      "updated_at": "2026-11-21T19:36:59.723899836Z",
+      "last_activity_at": ""
+    }
+  ],
+  "review": {
+    "id": "T4",
+    "title": "Verify the integrated textstats project",
+    "brief": "Once all replacements of the original build task are completed, inspect the combined source, run go test ./..., build the CLI and verify Unicode stdin plus file and error paths. Record final evidence and any tracker issues.",
+    "status": "pending",
+    "origin_id": "T4",
+    "parent_id": "",
+    "revision": 1,
+    "owner": "",
+    "claim_id": "",
+    "tags": [
+      "review"
+    ],
+    "metadata": {},
+    "prerequisites": [
+      "T1"
+    ],
+    "progress": "",
+    "result": "",
+    "created_at": "2026-11-21T19:36:59.732106307Z",
+    "updated_at": "2026-11-21T19:36:59.732106307Z",
+    "last_activity_at": ""
+  },
+  "subscription": {
+    "id": "S916f48af23e7a26be6cbd896e525457b",
+    "task_id": "T1",
+    "session": "trial-coordinator",
+    "resume_idle": false,
+    "cursor": 2,
+    "snapshot_pending": true,
+    "queued_through": 0,
+    "queue_cursor": 2,
+    "queue_snapshot_pending": true,
+    "created_at": "2026-11-21T19:36:59.715832240Z",
+    "updated_at": "2026-11-21T19:36:59.715832240Z"
+  }
+}

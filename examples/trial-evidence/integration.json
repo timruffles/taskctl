@@ -1,0 +1,75 @@
+{
+  "tests_command": "go test -race ./...",
+  "tests_stdout": "ok  \texample.com/textstats\t1.036s\nok  \texample.com/textstats/cmd/textstats\t1.013s\n",
+  "tests_stderr": "",
+  "fixtures": [
+    {
+      "args": [],
+      "stdin": "caf\u00e9\n\ud83d\ude42",
+      "exit": 0,
+      "stdout": "{\"lines\":2,\"words\":2,\"runes\":6}\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "-"
+      ],
+      "stdin": "",
+      "exit": 0,
+      "stdout": "{\"lines\":0,\"words\":0,\"runes\":0}\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "--",
+        "-input.txt"
+      ],
+      "stdin": "ignored",
+      "exit": 0,
+      "stdout": "{\"lines\":1,\"words\":2,\"runes\":12}\n",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "missing-file"
+      ],
+      "stdin": "",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "textstats: open missing-file: no such file or directory\n"
+    },
+    {
+      "args": [
+        "one",
+        "two"
+      ],
+      "stdin": "",
+      "exit": 2,
+      "stdout": "",
+      "stderr": "usage: textstats [FILE]\n"
+    }
+  ],
+  "review": {
+    "id": "T4",
+    "title": "Verify the integrated textstats project",
+    "brief": "Once all replacements of the original build task are completed, inspect the combined source, run go test ./..., build the CLI and verify Unicode stdin plus file and error paths. Record final evidence and any tracker issues.",
+    "status": "completed",
+    "origin_id": "T4",
+    "parent_id": "",
+    "revision": 4,
+    "owner": "",
+    "claim_id": "",
+    "tags": [
+      "review"
+    ],
+    "metadata": {},
+    "prerequisites": [
+      "T1"
+    ],
+    "progress": "Both Luna branches finished, including the T2 to T5 replacement. Reviewing integrated source and executing CLI fixtures.",
+    "result": "Reviewed both Luna implementations. go test -race ./... passes for library and CLI. Built CLI and verified Unicode stdin, empty stdin, a real leading-hyphen filename via --, missing-file exit 1, and usage exit 2. T4 became available only after T3 and replacement T5 completed.",
+    "created_at": "2026-11-21T19:36:59.732106307Z",
+    "updated_at": "2026-11-21T19:39:56.315466034Z",
+    "last_activity_at": "2026-11-21T19:39:56.315466034Z"
+  }
+}
