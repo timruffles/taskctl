@@ -1,231 +1,278 @@
 # taskctl
 
-A local Go CLI for a small group of coding agents. SQLite owns task state, claims, events and subscriptions. There is no server and no Git dependency.
+A local task CLI for a small group of coding agents. Agents claim work, record useful progress and replace stale task definitions with the work that actually remains. You use the same CLI to see what is running, what can start and what is blocked.
 
-The default view is the work remaining now. A substantial change replaces a task with fresh, self-contained tasks and marks the original `superseded`. History remains discoverable through `parent_id` and `origin_id`.
+One Go binary. SQLite stores tasks, ownership, history and notification cursors. Storage lives outside the repository, so agents in separate worktrees can share a project. Git is optional.
 
-## Build
+## Install
 
-Go 1.26 or newer; Linux and macOS. SQLite is embedded through `modernc.org/sqlite`; no C toolchain or SQLite installation is required.
+Build from this checkout with Go 1.26 or newer:
 
 ```sh
-go build -buildvcs=false -trimpath -o bin/taskctl ./cmd/taskctl
-go test ./...
+mkdir -p "$HOME/.local/bin"
+go build -buildvcs=false -trimpath -o "$HOME/.local/bin/taskctl" ./cmd/taskctl
+export PATH="$HOME/.local/bin:$PATH"
+taskctl version
 ```
 
-Put `taskctl` on `PATH` for the examples and for commands included in queue wake messages. The binary reports `0.2.0`. Existing schema-version-1 SQLite projects remain compatible; missing additive indexes are installed on open.
+Linux and macOS are supported. SQLite is embedded; running taskctl needs neither a SQLite installation nor a C toolchain.
 
-## Start a project
+Passing `main` builds also publish `taskctl-linux-amd64.tar.gz` and `taskctl-darwin-arm64.tar.gz` in **Actions → CI**. Each archive contains the executable `taskctl`; extract it into a directory on your `PATH`. Artifacts are retained for 14 days.
+
+## Use it with agents
+
+### 1. Create one project for the work
+
+From the repository your agents will work on:
 
 ```sh
-taskctl projects create --name my-project --path "$PWD"
-taskctl tasks create --title 'Implement parser' --brief-file parser-task.md --tag parser
+taskctl projects create --name csv-import --path "$PWD"
+taskctl projects show
+```
+
+The first command creates a database and writes a `.taskctl.json` selector in this directory. Keep that local selector out of Git. Later commands find it from the current directory or an ancestor.
+
+Create a few concrete tasks. These examples assume a new project, where the returned IDs are `T1`, `T2` and `T3`:
+
+```sh
+taskctl tasks create --title 'Read CSV input' --tag import \
+  --brief 'Implement CSV reading in package input. Return records with named fields and useful errors for malformed rows. Add parser tests.'
+taskctl tasks create --title 'Add import command' --tag import \
+  --brief 'Add the import subcommand and --help text. Accept an input file path and report usage errors. Keep CSV parsing in package input.'
+taskctl tasks create --title 'Verify CSV import end to end' --tag import \
+  --brief 'Connect the import command to package input. Test a valid file, malformed CSV and a missing path; document one working invocation.' \
+  --prerequisite T1 --prerequisite T2
 taskctl tasks available
-taskctl tasks claim T1 --session agent-1 --json
 ```
 
-A successful claim returns a `claim_id`. Use that exact token for subsequent owner operations:
+Two agents can start `T1` and `T2`. `T3` becomes available after both prerequisites succeed. A task brief should say what remains, where to work and what evidence will establish completion.
+
+For separate worktrees, attach each existing directory to the **same project ID** returned by `projects show`:
 
 ```sh
-taskctl tasks progress T1 --claim CLAIM --text 'Tokenizer complete; error cases remain'
-taskctl tasks heartbeat T1 --claim CLAIM
-taskctl tasks complete T1 --claim CLAIM --summary 'Parser and error-case tests pass'
+taskctl projects attach --project PROJECT_ID --path /absolute/path/to/agent-worktree
 ```
 
-`claim` atomically changes a ready pending task to `in_progress`. A concurrent claimant loses with exit 3. All owner mutations check the current token. Repeating `claim` is a conflict, including for the same session. Read `tasks show` if a command's output was lost.
+You can also select a project explicitly with `taskctl --project PROJECT_ID ...` or `TASKCTL_PROJECT`. Selection order is the flag, environment variable, then directory selector.
 
-`release` returns claimed work to pending. `takeover` requires the exact previous claim, a new session and a reason. Inactivity never silently releases ownership. A lease expiring only releases a **notification delivery claim**, never a task claim.
+### 2. Give agents the taskctl skill
 
-For creation that may be retried after a lost command response, provide a stable request ID:
+Use [skills/taskctl/SKILL.md](skills/taskctl/SKILL.md) as the agent entry point. Install the entire `skills/taskctl/` directory, including its references, in your agent's project skill directory. Alternatively, give the agent the absolute path to `SKILL.md` and ask it to read that file.
+
+A worker prompt can be this small:
+
+> Read the taskctl skill at `/absolute/path/to/taskctl/skills/taskctl/SKILL.md`. Use project `PROJECT_ID`. Pick one available task tagged `import`, claim it using your session identity, and implement it in your assigned worktree. Keep its current progress and remaining work accurate. Complete it with the checks you actually ran.
+
+taskctl coordinates task ownership; your agent harness starts agents and gives them worktrees or file boundaries. A database claim does not prevent two processes editing the same files.
+
+### 3. Let each worker claim its own task
+
+The agent starts with a short list and loads the chosen task's details:
 
 ```sh
-taskctl tasks create --title 'Implement parser' --brief-file parser-task.md --request-id parser-v1 --json
+taskctl tasks available --tag import --limit 10 --json
+taskctl tasks show T1 --json
+taskctl tasks claim T1 --session AGENT_SESSION_ID --json
 ```
 
-Repeating that key with equivalent input returns the same task without creating another task or event. Reusing the key with different input is a conflict. Keys are project-local, persist across process restarts, and are not preserved when restoring into a new project. Creation without a request ID creates a new task on every successful call. If another mutation loses its response, inspect current state before retrying; a failed transport does not prove the transaction failed.
+A successful claim returns a `claim_id`. Use that exact value wherever `CLAIM_TOKEN` appears below. Concurrent claims are safe: one succeeds and the other receives a conflict. A list is only a snapshot; successful `claim` establishes ownership.
 
-## Keep the current work crisp
+With Codex hooks, the session identity must match the hook's `agent_id` when present, otherwise its `session_id`. With another harness, assign each worker a distinct identity and use it consistently.
 
-When a significant chunk is finished, record what changed and replace the task with the actual remaining work. Do not keep extending a stale brief. The following is an alternative to completing T1: start from a still-claimed, unfinished task. A completed task cannot be superseded.
+Agents can attach useful references without putting them in every list:
+
+```sh
+taskctl tasks metadata T1 --claim CLAIM_TOKEN --key worktree --value /absolute/agent-worktree
+taskctl tasks metadata T1 --claim CLAIM_TOKEN --key agent_session_id --value AGENT_SESSION_ID
+```
+
+## See what remains
+
+Start with these commands while agents work:
+
+| What you want to know | Command |
+| --- | --- |
+| All unfinished current tasks | `taskctl tasks list` |
+| Work an agent can claim now | `taskctl tasks available` |
+| Work currently claimed, its owner and last activity | `taskctl tasks in-progress` |
+| Pending work waiting on prerequisites | `taskctl tasks blocked` |
+| Current work in one area | `taskctl tasks list --tag import` |
+| A task's brief, latest progress, prerequisites and result | `taskctl tasks show T1` |
+| Original and replacement definitions | `taskctl tasks history T1` |
+| A snapshot of an original task's overall outcome | `taskctl tasks watch T1 --once` |
+| Completed work | `taskctl tasks list --status completed` |
+
+The default list contains pending and in-progress tasks. Completed, cancelled and superseded definitions stay in history. The `ORIGIN` column points back to the top-level original; `show` also names the immediate predecessor. You can inspect old intent without making it the default view.
+
+Lists default to 20 rows and print a continuation command when more remain:
+
+```sh
+taskctl tasks list --tag import --limit 20 --offset 20
+taskctl tasks show T1 --json
+```
+
+`--json` gives agents and scripts structured output. Task lists include `total`, `omitted` and `next_offset`; `total` counts all matching tasks, including those beyond the current page. History, subscription and scratch lists use `more` and `next_offset`. Lists cap at 200 rows, and omit large briefs and progress text; use `show` for detail.
+
+Repeated tags mean AND: `--tag import --tag tests` selects tasks carrying both tags. Add a tag with `tasks tag ID --tag TAG`, supplying `--claim` if the task is in progress.
+
+## Keep progress and task definitions current
+
+Record a checkpoint when something meaningful changes:
+
+```sh
+taskctl tasks progress T1 --claim CLAIM_TOKEN \
+  --text 'Valid CSV rows parse; parser tests pass. Malformed-row errors remain.'
+```
+
+`show` displays the latest checkpoint. A heartbeat only refreshes activity and is silent by default:
+
+```sh
+taskctl tasks heartbeat T1 --claim CLAIM_TOKEN
+```
+
+Hooks can handle heartbeats. Agents still need to record what they achieved, what remains and any useful paths or decisions. Activity alone cannot tell you whether the work is advancing.
+
+### Replace a task when a substantial chunk is finished
+
+If the original brief now describes mostly completed work, supersede it with a crisp description of what remains. For the still-claimed `T1`, save this as `remaining.json`:
 
 ```json
 {
-  "summary": "Tokenizer implemented and tested in parser/tokenize.go. Error handling and integration remain.",
+  "summary": "CSV parsing is implemented in input/csv.go; valid-row tests pass. Malformed-row errors remain.",
   "replacements": [
     {
       "key": "errors",
-      "title": "Handle malformed tokens",
-      "brief": "Tokenizer is complete in parser/tokenize.go. Add typed errors for unterminated strings and invalid escapes; add table tests. The public token API stays unchanged."
-    },
-    {
-      "key": "integration",
-      "title": "Integrate the tokenizer",
-      "brief": "Use the tokenizer from parser/tokenize.go in Parse. Preserve typed errors and verify the existing parser fixtures.",
-      "prerequisites": ["@errors"]
+      "title": "Report malformed CSV rows",
+      "brief": "Extend input/csv.go to return errors with row numbers for malformed CSV and missing required fields. Preserve valid-row parsing. Add cases to input/csv_test.go and run the parser tests."
     }
   ],
   "continue_with": "errors"
 }
 ```
 
+Read the current revision, then use it with the current claim:
+
 ```sh
 taskctl tasks show T1 --json
-taskctl tasks supersede T1 --claim CLAIM --revision REVISION --file remaining.json
+taskctl tasks supersede T1 --claim CLAIM_TOKEN --revision REVISION --file remaining.json
 taskctl tasks in-progress
 taskctl tasks available
-taskctl tasks history T1
 ```
 
-Supersession, replacement creation, inherited references and events commit together. The old task becomes immutable. Each replacement needs a brief that stands on its own. Tags, metadata, prerequisites and scratch references are inherited. Additional replacement prerequisites can refer to new siblings with `@key`.
+The replacement becomes the current task; `T1` remains discoverable as `superseded`. `continue_with` claims the ready replacement for the same worker and returns a **new claim token**. Use the returned task ID and token from then on. Omit `continue_with` to leave replacements pending for other agents.
 
-`continue_with` is optional. It transfers the current owner to one ready replacement and returns a **new** claim token. Without it every replacement is pending. An old token cannot mutate a successor.
+Tags, metadata, prerequisites and scratch references carry forward. Each new brief must stand on its own. A prerequisite or subscription on `T1` follows its replacements, so `T3` keeps waiting for the remaining CSV work. An original succeeds only when every replacement branch completes; its stored state remains `superseded`.
 
-A prerequisite or watch on an original task follows all its replacement branches. The original succeeds only when every branch completes. Cancellation is a distinct outcome; other unfinished branches remain visible. A dependent task becomes available only after all prerequisite outcomes are completed. Cycles across both prerequisites and replacements are rejected atomically.
-
-## Cheap discovery, then detail
+For a small correction, use `tasks edit ID --revision REVISION --brief-file FILE`, with `--claim` when owned. When work is finished, record the actual result and verification:
 
 ```sh
-taskctl tasks available --tag parser --limit 10 --json
-taskctl tasks in-progress --json
-taskctl tasks blocked
-taskctl tasks list --status all --limit 20 --offset 20
-taskctl tasks show T3 --json
-taskctl tasks history T3 --limit 20 --offset 0 --json
-taskctl tasks subscriptions --session coordinator --limit 20 --json
-taskctl scratch list T3 --limit 20 --json
+taskctl tasks complete TASK_ID --claim CLAIM_TOKEN --summary 'Implemented row-numbered errors; parser tests pass.'
 ```
 
-Task lists default to 20 rows, cap at 200, and report `total`, `omitted` and `next_offset`. They exclude briefs, metadata, results, progress text and claim tokens. In-progress rows include owner and last activity.
+### Recover interrupted work deliberately
 
-History, subscription and scratch lists also default to 20 rows and cap at 200. Their JSON envelopes contain `tasks`, `subscriptions` or `areas`, plus `more` and `next_offset`. When `more` is true, pass that offset to the next call. History pages include the original lineage's definitions, links, progress and results.
-
-`show` includes the current brief, latest progress, result and metadata. Its scratch references are limited to one page, with `scratch_more` and `scratch_next_offset`; continue through `scratch list ID --offset N`. These pagination envelopes replace the unbounded arrays returned before 0.2.0.
-
-Tags are plain strings. Repeated `--tag` filters mean AND. Lifecycle state and ownership are separate fields.
+Inspect `tasks in-progress`, then `tasks show ID`. If a worker is handing off unfinished work, record a checkpoint and release its claim:
 
 ```sh
-taskctl tasks tag T3 --tag tests
-taskctl tasks metadata T3 --key worktree --value /absolute/worktree
-taskctl tasks metadata T3 --key agent_session_id --value SESSION
-taskctl tasks depend T3 --prerequisite T2
+taskctl tasks release TASK_ID --claim CLAIM_TOKEN
 ```
 
-Pass `--claim` when modifying in-progress work. `edit` and `supersede` also require the revision read from the task. A small correction can use `edit`; substantial completed work belongs in a supersession summary and a fresh remaining brief.
-
-## Watch and subscribe
-
-Foreground watches stream an initial current snapshot and subsequent events, following replacements:
+For a crashed worker, confirm its process has stopped or isolate its worktree before taking over:
 
 ```sh
-taskctl tasks watch T1 --json
-taskctl tasks watch T1 --once --json
-taskctl tasks watch T1 --after 42 --exec /absolute/handler --timeout 30m
+taskctl tasks takeover TASK_ID --expected-claim OLD_CLAIM_TOKEN \
+  --session REPLACEMENT_SESSION_ID --reason 'Previous worker exited; inspected its worktree and remaining changes.'
+```
+
+Takeover returns a new token. Old tokens can no longer change the task, but taskctl cannot stop an old process writing files. Inactivity never releases ownership automatically.
+
+If a command's response is lost, read current state before retrying. For task creation that may be retried, supply a stable `--request-id`; equivalent input with the same key returns the existing task.
+
+## Watch work and notify agents
+
+For a human terminal or a script waiting on a result:
+
+```sh
+taskctl tasks watch T1
 taskctl tasks wait T1 --timeout 30m
 ```
 
-`watch --once` without `--after` returns one current snapshot. With `--after`, it performs one event-page check; resume from the last emitted cursor to read further pages. Full event pages target at most 1 MiB of stored event payload as well as their event-count limit. One oversized event is allowed so it can be delivered without blocking the cursor permanently. Snapshots contain at most 20 task summaries and report omitted rows.
+These follow replacements. `watch` streams updates; `wait` blocks until the overall outcome is known or the timeout expires. Exit status is 0 for completed, 4 for cancelled and 5 for timeout.
 
-A task-watch callback receives one snapshot or event envelope on stdin. It runs without a shell, with no arguments, a 30-second execution timeout, and no held database transaction. Handler stdout and stderr are forwarded to stderr. A failed callback stops the watcher before advancing its in-memory cursor. Resume with the last successfully processed event ID. `wait` exits 0 for completed, 4 for cancelled and 5 for timeout. Neither command assumes that silence means success.
-
-Use a subscription when a cursor must survive a consumer restart:
+For notifications that survive consumer restarts, create a subscription:
 
 ```sh
 taskctl tasks subscribe T1 --session coordinator --json
-taskctl subscriptions pending SUB --session coordinator --json
-taskctl subscriptions acknowledge SUB --session coordinator --token TOKEN --through EVENT_ID
-taskctl subscriptions watch SUB --session coordinator --exec /absolute/handler
+taskctl subscriptions pending SUBSCRIPTION_ID --session coordinator
 ```
 
-Subscriptions, event cursors, offered ranges and delivery tokens live in SQLite. Only one consumer holds a subscription's delivery lease at a time (default five minutes). An explicit ACK advances the cursor. Expired or superseded delivery tokens cannot ACK another consumer's batch. A subscription callback receives the complete Delivery batch on stdin, including its event array and any initial snapshot, rather than a single task-watch event. It has the same 30-second timeout and ACKs only after exit 0. Delivery is at least once: make external callback effects idempotent using the event ID. No claim of exactly-once external effects is made.
+`pending` includes the exact acknowledgement command. Read the batch, then acknowledge that token and event range. When nothing is pending it prints nothing. SQLite holds the cursor and exclusive delivery lease; expired deliveries can be offered again. Callback handlers can use `subscriptions watch SUBSCRIPTION_ID --session coordinator --exec /absolute/handler`, and should make effects idempotent by event ID.
 
-New subscriptions include an ACK-required current snapshot, so subscribing to already completed work still produces a notification. `pending` prints nothing when there is nothing to deliver. Progress updates stay available; bounded Codex summaries coalesce adjacent updates without skipping their event IDs.
+Run long-lived watchers in a separate terminal or supervised process. Use asynchronous hooks to deliver changes to a working agent without holding its tool call open.
 
-An event cursor beyond the database's current high-water mark is rejected. After restoring a backup, recreate subscriptions in the new project rather than reusing an old database's cursor.
+### Codex hooks
 
-Watchers scan for inactivity once a second, using a default 30-minute activity threshold. Active Codex hooks also check after refreshing the executing owner’s activity. One inactivity event is emitted per claim/activity period. Heartbeats are silent and do not change the task revision. Inactivity is a reason to inspect the task, not proof that a process has died.
-
-## Codex
+From an attached project, generate the hook configuration:
 
 ```sh
 taskctl integrations codex config > taskctl-hooks.json
 ```
 
-This prints configuration for asynchronous `PostToolUse` and `SessionStart` command hooks with an absolute executable and explicit project. Merge it into your Codex hook configuration; the command does not modify your configuration. See the [official hooks documentation](https://learn.chatgpt.com/docs/hooks).
+Merge the generated entries into your Codex hook configuration, such as the project's `.codex/hooks.json`; this command only prints configuration. See the [Codex hooks documentation](https://learn.chatgpt.com/docs/hooks). The generated commands include the absolute taskctl executable and selected project ID, so regenerate them if either changes.
 
-The adapter records activity using `agent_id` when present, otherwise `session_id`. Claim work using that same identity. With no pending changes, `PostToolUse` emits nothing. With changes, it returns bounded `additionalContext` and an explicit ACK command. `SessionStart` restores a compact current snapshot. Defaults are five events and 3,000 context bytes; `integrations codex hook` accepts `--limit`, `--lease` and `--max-context-bytes`.
+The adapter uses asynchronous `PostToolUse` and `SessionStart` hooks. `PostToolUse` refreshes the executing worker's activity and stays silent when there are no updates. Notifications arrive as bounded context with an explicit ACK command; `SessionStart` can restore a compact current snapshot. Subscribe using the receiving agent's hook identity.
 
-Hooks and Codex queue wakes read bounded summaries directly from SQLite: they limit text fields and omit unused event data before loading a batch. Large snapshots or progress text are compacted further to fit the context budget, with omitted detail explicitly indicated. Event identities and the exact acknowledgement range remain available. Explicit event reads and callback deliveries retain full event content. If a delivery token expires before the agent acknowledges it, request a fresh batch with `subscriptions pending`; do not treat an old token as authority over a newer offer.
+With a watcher or hook running, the default inactivity threshold is 30 minutes. An inactivity event means inspect the worker; it does not establish that the process crashed. Recent activity suppresses repeat inactivity reports.
 
-Asynchronous hooks deliver context at active-session safe points; they do not themselves resume an idle session. Idle resumption is separate and opt-in:
+Waking an idle Codex thread is a separate opt-in integration:
 
 ```sh
 taskctl tasks subscribe T1 --session CODEX_THREAD_ID --resume --json
-taskctl subscriptions watch SUB --session CODEX_THREAD_ID --codex
+taskctl subscriptions watch SUBSCRIPTION_ID --session CODEX_THREAD_ID --codex
 ```
 
-Run this watcher outside the agent's blocking tool call, for example under a user service. It uses `codex queue --thread ... --message ... --resume`; see [Codex developer commands](https://learn.chatgpt.com/docs/developer-commands?surface=cli). Progress alone never queues a turn. Completion, cancellation, newly available work and inactivity can queue a wake. The queue cursor is independent of the acknowledgement cursor, so unacknowledged progress cannot hide later completion.
+This uses `codex queue --thread ... --message ... --resume`; run the watcher outside the waiting agent. Queue acceptance leaves the notification pending until the agent reads and acknowledges it. Progress alone does not queue a wake. Availability depends on your installed Codex version supporting these [developer commands](https://learn.chatgpt.com/docs/developer-commands?surface=cli). Native Codex delivery has not been validated end to end; the [chaos report](docs/CHAOS_VALIDATION.md) distinguishes the hook-enabled agent harness tests from native-client coverage.
 
-Queue acceptance records transport progress; it does not acknowledge context. The wake instructs the agent to read pending updates and ACK them. The adapter does not bypass Codex's pause or interruption handling. Automatic delivery depends on the installed Codex version and its hook/queue support. The V1 test report distinguishes fake-transport tests from the real Luna CLI trial.
+## Scratch, storage and backups
 
-## Scratch and storage
+Agents can create disposable storage linked to a task:
 
 ```sh
-taskctl scratch create T3 --claim CLAIM --json
-taskctl scratch list T3
-taskctl scratch attach T4 --area AREA
+taskctl scratch create TASK_ID --claim CLAIM_TOKEN
+taskctl scratch list TASK_ID
 taskctl scratch cleanup --dry-run
 taskctl scratch cleanup
 ```
 
-Scratch is out of the repository, tool-owned and disposable. Important output goes in the repository, with a reference in the task. A scratch area remains while any pending or in-progress task references it. Replacement tasks inherit references. After its last current reference disappears, the default grace is seven days. Cleanup only acts on registered tool-owned areas; metadata paths and attached worktrees are never deletion targets. Automatic cleanup is bounded and runs after selected task mutations; large areas can require multiple passes or explicit cleanup calls. Mutations refresh only the affected scratch references in the same transaction. Cleanup selects indexed eligible areas in bounded batches, without refreshing every area first.
+Keep important code, results and decisions in the repository, and link to them from the task. Scratch remains while a current task references it, including inherited references after supersession. Once no current task needs it, the default cleanup grace is seven days. Cleanup runs in bounded passes after selected mutations or through `scratch cleanup`. Attached worktrees and metadata paths are never cleanup targets.
 
 | Data | Location |
 | --- | --- |
-| Database and project manifest | `$XDG_DATA_HOME/taskctl/projects/PROJECT/` |
-| Disposable scratch | `$XDG_STATE_HOME/taskctl/scratch/PROJECT/` |
-| Optional defaults | `$XDG_CONFIG_HOME/taskctl/config.json` |
-| Repository/worktree selector | `.taskctl.json` containing the project ID |
+| Database and project manifest | `$XDG_DATA_HOME/taskctl/projects/PROJECT_ID/` |
+| Disposable scratch | `$XDG_STATE_HOME/taskctl/scratch/PROJECT_ID/` |
+| Optional configuration | `$XDG_CONFIG_HOME/taskctl/config.json` |
 
-XDG defaults are `~/.local/share`, `~/.local/state` and `~/.config`. Project selection is `--project`, then `TASKCTL_PROJECT`, then the nearest ancestor `.taskctl.json`. Attach every worktree to the same project ID with `projects attach`. The marker contains an ID, not an absolute database path. Use a local filesystem; network filesystems and multi-host coordination are outside V1.
+The XDG defaults are `~/.local/share`, `~/.local/state` and `~/.config`. Use a local filesystem shared by the local agents; multi-host and network-filesystem coordination are outside the supported scope.
 
-Normal commands open an existing, validated database. Missing or empty storage fails with `storage_missing` or `storage_invalid`; it cannot silently become an empty backlog. Full-disk, I/O and read-only failures retain distinct operational error codes. Only explicit project creation or restore initializes a database.
-
-Optional configuration:
-
-```json
-{"inactivity":"30m","scratch_grace":"168h","list_limit":20}
-```
-
-## SQLite backup and restore
+Back up to a consistent SQLite snapshot:
 
 ```sh
-taskctl backup --file tasks-2026-11-21.sqlite
-taskctl restore --file tasks-2026-11-21.sqlite --name recovered-project
+taskctl backup --file taskctl-backup.sqlite
+taskctl restore --file taskctl-backup.sqlite --name recovered-project
 ```
 
-`backup` creates a consistent live SQLite snapshot using `VACUUM INTO`. It syncs the completed staging file and publishes it atomically, refusing an existing destination. It includes durable task/history data and subscription state, but omits scratch file contents. The resulting SQLite file can be stored in Git or another backup system. Do not copy only the live main database file while WAL writes may be outstanding.
+Use a fresh filename for each backup; an existing file is never overwritten. You can store the resulting snapshot in Git or any backup system. Use `backup` rather than copying a live database file, which may have outstanding WAL writes.
 
-`restore` accepts a SQLite backup and creates a **new** project. It holds one read-only source snapshot and validates and inserts one row at a time into the application's own schema. Schema, field, reference, lineage and dependency-graph validation must all pass before the destination transaction commits. Source triggers and other schema objects are not imported. A failed restore rolls back its changes.
+Restore creates a **new project** and leaves the source intact. It preserves task history, releases old active claims, and clears subscriptions and creation request receipts. Attach the new project ID to the intended directory and recreate subscriptions. Scratch contents are not included. Backups are SQLite-only; `--json` remains available for command output.
 
-Restore releases old active claims, clears subscriptions and creation request receipts, and preserves scratch-reference history marked unavailable. Recreate subscriptions and attach the new project to the intended worktree. There is no restore-over-live-database operation.
+## Development and reference
 
-JSON archive export and restore were removed in 0.2.0. Command output with `--json` and supersession-plan JSON remain supported.
+[CI](.github/workflows/ci.yml) runs root unit, process and chaos tests, both example modules and `go vet` on Linux and macOS. Tests use the race detector. Pull requests, pushes to `main` and manual runs trigger checks; successful main runs build the two binary artifacts.
 
-## Data size and memory
+Use `taskctl --help` for exact operation names and flags. Commands reject unknown flags. With `--json`, data goes to stdout and structured errors to stderr. Exit codes are 0 success, 1 operational failure, 2 invalid input, 3 conflict or busy, 4 cancelled watched work, 5 timeout, and 130 interrupted watch.
 
-Ordinary operations query the affected tasks, prerequisites or watched scope. Recording progress does not scan historical task definitions. Availability events are written with the task mutation, and completing a replacement still notifies dependents of its ancestors.
-
-Pure reads use read snapshots without reserving the SQLite writer lock. Opening an up-to-date database skips the schema write transaction. Availability and graph checks use indexed SQL and disk-backed temporary storage where needed.
-
-Pages and restore buffers avoid loading an entire history or database into Go objects. Memory still depends on the requested page, its largest records, and SQLite's working sets; a single task's full brief, metadata or event payload can be large. Exact list counts and requests covering large replacement trees still require work proportional to the relevant data. See `docs/PERFORMANCE.md` for measured scaling and limits.
-
-## Command rules
-
-- Exact operation names and flags; no abbreviation, implicit next-task claim or overloaded status-setting command.
-- Flags may appear after task IDs. Unknown flags and unknown supersession JSON fields fail.
-- `--json` writes machine data to stdout and structured errors to stderr. Empty pending/hook results produce zero bytes.
-- Exit codes: 0 success; 1 operational failure; 2 invalid usage/input; 3 conflict or busy; 4 cancelled watched work; 5 timeout; 130 interrupted watch.
-- Tasks use `T1` IDs within an explicitly selected project. Subscriptions and scratch areas have random IDs.
-- Task changes and their events share short SQLite transactions. WAL, foreign keys, a five-second busy timeout and full synchronous commits are enabled. No database transaction spans waiting or an external callback.
-
-See `docs/DESIGN.md` and the ADRs for the reasoning. `docs/VALIDATION.md` records the initial V1 verification. `docs/CHAOS_VALIDATION.md` records the recovery tests, defects found, and hooked Luna chaos trial.
+- [Agent skill](skills/taskctl/SKILL.md): the worker procedure and conditional references.
+- [Design](docs/DESIGN.md) and [decisions](docs/adr/): states, concurrency and notification semantics.
+- [Performance](docs/PERFORMANCE.md): measured scaling, memory use and limits.
+- [Validation](docs/VALIDATION.md) and [chaos testing](docs/CHAOS_VALIDATION.md): test evidence and remaining limits.
+- [Changelog](CHANGELOG.md): changes between versions.
