@@ -1,0 +1,69 @@
+{
+  "paraphrase": "The README presents taskctl as a local CLI that coordinates task ownership, progress, replacement tasks, notifications, and storage for coding agents. When a task's brief mostly describes completed work, evolve it into one or more standalone briefs for the work that remains; the original stays in history, and `continue_with` can claim a ready replacement for the same worker. The README also distinguishes evolution from editing a small correction, recording progress, completing work, and handing off an interrupted task.",
+  "answers": [
+    {
+      "id": "remaining",
+      "command": "taskctl tasks evolve T7 --claim C7 --revision 12 --file remaining.json",
+      "plan": {
+        "summary": "CSV parsing and the CLI are implemented and verified; malformed-row errors and integration tests remain.",
+        "replacements": [
+          {
+            "key": "errors",
+            "title": "Report malformed CSV rows",
+            "brief": "Add malformed-row errors to the CSV parser. Preserve existing parsing behaviour and add tests for malformed rows."
+          },
+          {
+            "key": "integration",
+            "title": "Add CSV import integration tests",
+            "brief": "Add integration tests for the CSV import command, including malformed input. Verify the command works with the parser."
+          }
+        ],
+        "continue_with": "errors"
+      },
+      "explanation": "Evolution replaces the stale current definition while preserving T7 as an evolved task in history. The command requires the current claim and revision."
+    },
+    {
+      "id": "correction",
+      "command": "taskctl tasks edit T8 --revision 4 --brief-file FILE --claim C8",
+      "explanation": "Use `tasks edit` for a small correction. The README describes it as editing the task brief; it does not say this creates a new task ID."
+    },
+    {
+      "id": "checkpoint",
+      "command": "taskctl tasks progress T9 --claim C9 --title 'Investigation confirmed the existing plan.' --body-file evidence.md",
+      "explanation": "Progress records a checkpoint and optional Markdown evidence. It does not retire T9."
+    },
+    {
+      "id": "identity",
+      "explanation": "After evolution, use the returned replacement task ID and claim token. `continue_with` claims the specified ready replacement for the same worker and returns a new claim token. The README does not describe the old claim as authority to change the original task after it is evolved."
+    },
+    {
+      "id": "outcome",
+      "explanation": "The dependent task continues waiting because prerequisites follow replacements. A supervisor waiting on T10 is not finished waiting until the overall outcome is known; the README says `watch` and `wait` follow replacements. Once both replacements complete, T10's stored state remains `evolved`."
+    },
+    {
+      "id": "discovered",
+      "explanation": "Yes. Evolution is appropriate when the original brief is mostly completed and the remaining work needs an accurate definition. The README says to describe what remains; it does not imply discarding implemented code."
+    },
+    {
+      "id": "stale_owner",
+      "explanation": "The README requires the current claim for evolution, so an old claim after takeover is not sufficient. Being the original author does not establish ownership. First read the current state with `taskctl tasks show ID` and obtain the current claim from the worker who owns the task; the README does not specify a mechanism for reclaiming a task after takeover."
+    },
+    {
+      "id": "handoff",
+      "command": "Run `taskctl tasks evolve ID --claim CLAIM_TOKEN --revision REVISION --file remaining.json` with a plan that omits `continue_with`.",
+      "explanation": "Omitting `continue_with` leaves replacements pending for other agents. Tags, metadata, prerequisites, and scratch references carry forward; old notes remain with the original task. Each new brief must stand on its own."
+    },
+    {
+      "id": "navigation",
+      "explanation": "Use `taskctl tasks in-progress` for currently claimed work and `taskctl tasks available` for work that can be claimed. The `ORIGIN` column points to the top-level original, and `tasks show ID` names the immediate predecessor. `tasks history ID` shows original and replacement definitions; note titles can be listed with `taskctl notes list ID`, without reading note bodies."
+    },
+    {
+      "id": "finished",
+      "command": "taskctl tasks complete T12 --claim CLAIM_TOKEN --summary 'Describe the actual result and verification.'",
+      "explanation": "Complete the task after recording the actual result and verification. The README recommends evolution when substantial work remains, not an empty replacement list."
+    }
+  ],
+  "findings": [],
+  "prior_preference": null,
+  "isolation_marker": null
+}

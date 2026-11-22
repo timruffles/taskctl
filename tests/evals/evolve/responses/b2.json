@@ -1,0 +1,100 @@
+{
+  "paraphrase": "taskctl is a local task CLI for coordinating task ownership, progress notes, task replacement, notifications, and scratch storage across coding agents. When a task brief mostly describes completed work, `tasks evolve` replaces it with tasks for what remains while retaining the original in history; small corrections use `tasks edit`, and checkpoints use `tasks progress`.",
+  "answers": [
+    {
+      "id": "remaining",
+      "command": "taskctl tasks evolve T7 --claim C7 --revision 12 --file remaining.json",
+      "plan": {
+        "summary": "CSV parsing and the CLI are implemented and verified; malformed-row errors and integration tests remain.",
+        "replacements": [
+          {
+            "key": "errors",
+            "title": "Report malformed CSV rows",
+            "brief": "Implement and verify malformed-row error handling for CSV import."
+          },
+          {
+            "key": "integration",
+            "title": "Add CSV import integration tests",
+            "brief": "Add and run integration tests for CSV import."
+          }
+        ],
+        "continue_with": "errors"
+      },
+      "explanation": "Evolution replaces a mostly completed definition with tasks for the remaining work and preserves the original as evolved history. The plan uses the documented summary, replacements, and continue_with fields. The README does not specify a prerequisite relationship between these two replacement tasks."
+    },
+    {
+      "id": "correction",
+      "command": "taskctl tasks edit T8 --revision REVISION --brief-file FILE --claim C8",
+      "explanation": "Use `tasks edit` for a small correction. The README describes it as editing the brief, not creating a replacement task; it does not state separately whether the task ID changes."
+    },
+    {
+      "id": "checkpoint",
+      "command": "taskctl tasks progress T9 --claim C9 --title 'Investigation confirmed the existing plan.' --body-file evidence.md",
+      "explanation": "A progress note records a checkpoint and can include Markdown evidence from a file. Progress does not retire T9; the README presents it as recording progress while the task definition remains current."
+    },
+    {
+      "id": "identity",
+      "command": "not specified",
+      "explanation": "After evolution, use the replacement task ID and the new claim token returned when `continue_with` claims that replacement. The original task remains discoverable as evolved. The README says to use the returned task ID and token from then on; it does not say the old claim can still change the original."
+    },
+    {
+      "id": "outcome",
+      "command": "not specified",
+      "explanation": "A prerequisite or subscription on T10 follows its replacements, and a supervisor waiting on T10 follows replacements. The dependent task and supervisor are therefore still waiting while one replacement remains in progress. Once every replacement branch completes, T10's stored state remains `evolved`."
+    },
+    {
+      "id": "discovered",
+      "command": "taskctl tasks evolve T11 --claim CLAIM_TOKEN --revision REVISION --file remaining.json",
+      "explanation": "The README says to evolve when the original brief describes mostly completed work and to describe what remains. It does not require all remaining work to have appeared in the original brief. Evolution replaces the task definition; the README does not say it discards implemented code."
+    },
+    {
+      "id": "stale_owner",
+      "command": "taskctl tasks show ID",
+      "explanation": "The README says takeover returns a new token and old tokens can no longer change the task. It does not state specifically whether the former owner can evolve it or whether original authorship grants authority. First inspect the current task state; the README's recovery workflow says to inspect `in-progress` and then `show` before taking over."
+    },
+    {
+      "id": "handoff",
+      "command": "taskctl tasks evolve TASK_ID --claim CLAIM_TOKEN --revision REVISION --file remaining.json",
+      "plan": {
+        "summary": "Describe the completed work and what remains.",
+        "replacements": [
+          {
+            "key": "first",
+            "title": "First remaining task",
+            "brief": "Describe this task's work and evidence for completion."
+          },
+          {
+            "key": "second",
+            "title": "Second remaining task",
+            "brief": "Describe this task's work and evidence for completion."
+          }
+        ]
+      },
+      "explanation": "Omit `continue_with` to leave replacements pending for other agents. Tags, metadata, prerequisites, and scratch references carry forward; old notes stay with the original task, so essential facts should be carried into the handoff and successor briefs. Each new brief must stand on its own."
+    },
+    {
+      "id": "navigation",
+      "command": "taskctl tasks in-progress; taskctl tasks available",
+      "explanation": "`in-progress` shows currently claimed work and `available` shows work an agent can claim. The `ORIGIN` column points to the top-level original, while `show` names the immediate predecessor. `tasks history ID` shows original and replacement definitions. The README says note bodies require explicit reads; task views can show the latest progress title and note reference without loading all old bodies."
+    },
+    {
+      "id": "finished",
+      "command": "taskctl tasks complete T12 --claim CLAIM_TOKEN --summary 'Describe the actual result and verification.'",
+      "explanation": "Record the actual result and verification with `tasks complete`. The README describes evolution for work that remains and does not specify using an empty replacement list to complete a task."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "Major",
+      "scope": "Install; Development and reference",
+      "description": "The README requires Go 1.26 or newer but does not explain how to install or select that version. A fresh reader without the required Go version may not know how to satisfy the build prerequisite."
+    },
+    {
+      "severity": "Nit",
+      "scope": "Use it with agents; Codex hooks",
+      "description": "The README refers to Codex hook configuration and asynchronous `PostToolUse` and `SessionStart` hooks. It links to hook documentation, but does not establish which Codex versions support this hook configuration; it gives a version caveat only for the separate developer-command wake integration."
+    }
+  ],
+  "prior_preference": null,
+  "isolation_marker": null
+}

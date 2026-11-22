@@ -44,7 +44,7 @@ func backupTestRead(t *testing.T, path string) *sql.Tx {
 func TestSQLiteRoundTripAndRestoreFencing(t *testing.T) {
 	s := newTaskTestStore(t)
 	original := mustCreateTask(t, s, CreateSpec{Title: "Original intent", Brief: "Build the small project", Tags: []string{"v1"}, Metadata: map[string]string{"worktree": "/repo/worktree"}})
-	children, err := s.Supersede(original.ID, "", original.Revision, SupersedeSpec{Summary: "Remaining work is implementation and review", Replacements: []CreateSpec{{Key: "impl", Title: "Implementation", Brief: "Write the function"}, {Key: "review", Title: "Review", Brief: "Verify the function", Prerequisites: []string{"@impl"}}}})
+	children, err := s.Evolve(original.ID, "", original.Revision, EvolveSpec{Summary: "Remaining work is implementation and review", Replacements: []CreateSpec{{Key: "impl", Title: "Implementation", Brief: "Write the function"}, {Key: "review", Title: "Review", Brief: "Verify the function", Prerequisites: []string{"@impl"}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

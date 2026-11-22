@@ -243,7 +243,7 @@ func TestSubscriptionBoundedPagesRetryWithoutSkippingEvents(t *testing.T) {
 func TestSubscriptionScopeFollowsOnlyTargetDescendantsAndKeepsCancellation(t *testing.T) {
 	s, _ := notificationStore(t)
 	original := notificationTask(t, s, "original")
-	children, err := s.Supersede(original.ID, "", original.Revision, SupersedeSpec{
+	children, err := s.Evolve(original.ID, "", original.Revision, EvolveSpec{
 		Summary:      "Split independent remaining work",
 		Replacements: []CreateSpec{{Title: "A", Brief: "Finish branch A"}, {Title: "B", Brief: "Finish branch B"}},
 	})
@@ -251,7 +251,7 @@ func TestSubscriptionScopeFollowsOnlyTargetDescendantsAndKeepsCancellation(t *te
 		t.Fatal(err)
 	}
 	sub := notificationSubscribe(t, s, children[0].ID, "watcher")
-	grandchildren, err := s.Supersede(children[0].ID, "", children[0].Revision, SupersedeSpec{
+	grandchildren, err := s.Evolve(children[0].ID, "", children[0].Revision, EvolveSpec{
 		Summary:      "A now needs two remaining pieces",
 		Replacements: []CreateSpec{{Title: "A1", Brief: "Finish A1"}, {Title: "A2", Brief: "Finish A2"}},
 	})
@@ -453,7 +453,7 @@ func TestSnapshotAvailabilityIncludesBranchesOutsideBoundedRows(t *testing.T) {
 		replacements[i] = CreateSpec{Title: "blocked branch", Brief: "Complete after prerequisite", Prerequisites: []string{blocker.ID}}
 	}
 	replacements[24] = CreateSpec{Title: "available branch", Brief: "Ready now"}
-	if _, err := s.Supersede(original.ID, "", original.Revision, SupersedeSpec{Summary: "Decompose remaining work", Replacements: replacements}); err != nil {
+	if _, err := s.Evolve(original.ID, "", original.Revision, EvolveSpec{Summary: "Decompose remaining work", Replacements: replacements}); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, _, err := s.Current(original.ID)

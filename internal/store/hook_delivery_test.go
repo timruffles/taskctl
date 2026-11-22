@@ -86,7 +86,7 @@ func TestHookDeliveryFencesLatestTitlesAndReplaysUnacknowledgedEvents(t *testing
 	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
 	s.Now = func() time.Time { return now }
 	root := notificationTask(t, s, "original")
-	children, err := s.Supersede(root.ID, "", root.Revision, SupersedeSpec{Summary: "two branches", Replacements: []CreateSpec{
+	children, err := s.Evolve(root.ID, "", root.Revision, EvolveSpec{Summary: "two branches", Replacements: []CreateSpec{
 		{Title: "one", Brief: "first branch"}, {Title: "two", Brief: "second branch"},
 	}})
 	if err != nil {

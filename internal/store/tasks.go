@@ -91,7 +91,7 @@ type CreateSpec struct {
 	Prerequisites []string          `json:"prerequisites,omitempty"`
 }
 
-type SupersedeSpec struct {
+type EvolveSpec struct {
 	Summary      string       `json:"summary"`
 	Replacements []CreateSpec `json:"replacements"`
 	ContinueWith string       `json:"continue_with,omitempty"`
@@ -130,6 +130,7 @@ func scanTask(row taskScanner, prefix ...any) (Task, error) {
 		return Task{}, err
 	}
 	t.ID, t.OriginID, t.ParentID = taskID(id), taskID(origin), taskID(parent)
+	t.Status = publicEvolutionName(t.Status)
 	if err := json.Unmarshal([]byte(tagsJSON), &t.Tags); err != nil {
 		return Task{}, err
 	}
@@ -140,6 +141,14 @@ func scanTask(row taskScanner, prefix ...any) (Task, error) {
 		return Task{}, err
 	}
 	return t, nil
+}
+
+// Keep the durable spelling compatible with older processes that follow replacements.
+func publicEvolutionName(value string) string {
+	if value == "superseded" {
+		return "evolved"
+	}
+	return value
 }
 
 func getTask(q Queryer, id int64) (Task, error) {
@@ -442,6 +451,8 @@ func (s *Store) List(filter string, tags []string, limit, offset int) ([]Task, i
 		conditions = append(conditions, "t.status='pending' AND NOT ("+availablePredicate+")")
 	case "in-progress", "in_progress":
 		conditions = append(conditions, "t.status='in_progress'")
+	case "evolved":
+		conditions = append(conditions, "t.status='superseded'")
 	case "pending", "completed", "cancelled", "superseded":
 		conditions = append(conditions, "t.status='"+filter+"'")
 	default:
@@ -932,16 +943,16 @@ func inheritSpec(original Task, child CreateSpec) CreateSpec {
 	return child
 }
 
-func (s *Store) Supersede(id, claim string, revision int64, spec SupersedeSpec) ([]Task, error) {
+func (s *Store) Evolve(id, claim string, revision int64, spec EvolveSpec) ([]Task, error) {
 	n, err := taskNumber(id)
 	if err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(spec.Summary) == "" {
-		return nil, failure("invalid_input", "supersession requires a handoff summary")
+		return nil, failure("invalid_input", "evolution requires a handoff summary")
 	}
 	if len(spec.Replacements) == 0 {
-		return nil, failure("invalid_input", "supersession requires at least one replacement")
+		return nil, failure("invalid_input", "evolution requires at least one replacement")
 	}
 	replacements := make([]CreateSpec, len(spec.Replacements))
 	keys := map[string]bool{}

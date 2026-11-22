@@ -1,0 +1,42 @@
+[
+  {
+    "id": "remaining",
+    "question": "You own T7 with claim C7 at revision 12. Its brief says implement CSV import. Parsing and the CLI are finished and verified; only malformed-row errors and integration tests remain. The old brief is now mostly completed work. What CLI operation and plan structure should you use to make the current work accurate, preserving history? Show the command and a minimal valid plan with those two remaining tasks. You will continue the malformed-row work."
+  },
+  {
+    "id": "correction",
+    "question": "You own T8 with claim C8 at revision 4. Its brief has one incorrect filename; the work and acceptance criteria are unchanged. What operation should you use, and does it create a new task ID?"
+  },
+  {
+    "id": "checkpoint",
+    "question": "You own T9 with claim C9. A useful investigation confirmed the existing plan; its task definition is still accurate. You want to record a short checkpoint and a long evidence.md. Which command should you use? Should this operation retire T9?"
+  },
+  {
+    "id": "identity",
+    "question": "After the operation that replaces a stale definition, can your worker keep changing the original task with its original claim? Explain which task IDs and claim tokens it must use, including what continue_with does."
+  },
+  {
+    "id": "outcome",
+    "question": "T10 was replaced by two tasks. One is completed and the other remains in progress. A third task depends on T10, and a supervisor is waiting for T10. Are the dependent task and supervisor finished waiting? What happens to the stored state of T10 once both replacements complete?"
+  },
+  {
+    "id": "discovered",
+    "question": "Most of T11 is done, but testing uncovered a necessary input-normalisation step absent from the original brief. That step and a final verification are the actual remaining work. Is the operation for replacing a stale definition appropriate even though one successor contains newly discovered work? Does it imply discarding the already implemented code?"
+  },
+  {
+    "id": "stale_owner",
+    "question": "You retained the old task ID, claim and revision after losing ownership to another worker through takeover. Can you use the operation for replacing stale work on that task? Does being its original author give you authority? What should you do first?"
+  },
+  {
+    "id": "handoff",
+    "question": "You replace a stale task with two remaining tasks for other agents. How do you leave both pending? What happens to tags, metadata, prerequisites, scratch references and old note history? What must each new brief contain?"
+  },
+  {
+    "id": "navigation",
+    "question": "Which commands should a supervisor use to see work currently being done and work available to claim? Which commands or fields let it trace a current task back to the original definition without loading all old note bodies?"
+  },
+  {
+    "id": "finished",
+    "question": "You own T12 and all of its acceptance conditions are satisfied and verified. Should you replace its definition with an empty list of remaining tasks? State the correct operation and what information it should record."
+  }
+]

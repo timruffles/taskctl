@@ -8,17 +8,17 @@ Shared language for a local command-line tool that keeps a small number of codin
 A named collection of tasks with a stable identity and one shared local store. Its associated checkouts and worktrees use the same tasks and claims.
 
 **Task**:
-A recorded definition of work for an agent or person to perform. When substantial progress or a change of scope makes the definition stale, fresh tasks describe the remaining work and supersede the old definition.
+A recorded definition of work for an agent or person to perform. When substantial progress or a change of scope makes the definition stale, evolve it into fresh tasks describing the remaining work.
 _Avoid_: Ticket, issue when referring to the same record.
 
 **Frontier**:
 The current task definitions describing work still to do. These tasks are foregrounded in everyday views; earlier definitions are discoverable through history.
 
-**Superseded task**:
+**Evolved task**:
 A previous task definition replaced by one or more newer definitions of the remaining work. It is retained for reference and excluded from the frontier.
 
 **Task lineage**:
-The links connecting current tasks to the definitions they superseded, allowing a reader to trace the original intention.
+The links connecting current tasks to their predecessor definitions, allowing a reader to trace the original intention. These are evolution links, not a parent task assigning concurrent subtasks.
 
 **Task brief**:
 A self-contained account of the remaining work, relevant work already completed, decisions that still matter, and useful references. Reading predecessor tasks is optional for understanding the current work.
@@ -30,7 +30,7 @@ An observation of a task's remaining work that follows replacements, provides pr
 A recorded interest in updates about particular work, following replacement tasks as that work changes. It identifies which updates a subscriber should receive.
 
 **Prerequisite**:
-Work that must complete before a task can be claimed. If its definition is superseded, the requirement follows the remaining replacement branches.
+Work that must complete before a task can be claimed. When the task evolves, the requirement follows the remaining replacement branches.
 
 **Available task**:
 A current, unfinished task with no owner and no unfinished prerequisites. Availability describes the current state and can change before a claim is attempted.

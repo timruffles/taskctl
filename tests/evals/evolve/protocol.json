@@ -1,0 +1,16 @@
+{
+  "source_commit": "51ceee073bf59424ad30aebb5a3f9ef1bcde1ea7",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "medium",
+  "runs_per_variant": 3,
+  "variants": {
+    "a": "supersede",
+    "b": "evolve"
+  },
+  "method": "Fresh parent-conversation-free agents. One whole README per agent; no code or other docs. Same scenarios. Two binary criteria per scenario. Rubric saved before first dispatch. No claim of statistical superiority from this convenience sample.",
+  "decision": "Prefer evolve if critical invariants remain understood; any name-specific semantic error requires clearer wording and a fresh retest. Report ties and uncertainty, not just totals.",
+  "readme_sha256": {
+    "a": "1198159100e6c7f6a7323b0dbe8524282b9a3fff18f8808238f41016e199ba97",
+    "b": "6cbb78423ffc23ca38810d2fca305a77b6a212780edf4903550bf89ac170e386"
+  }
+}

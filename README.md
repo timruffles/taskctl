@@ -104,7 +104,7 @@ Start with these commands while agents work:
 | A snapshot of an original task's overall outcome | `taskctl tasks watch T1 --once` |
 | Completed work | `taskctl tasks list --status completed` |
 
-The default list contains pending and in-progress tasks. Completed, cancelled and superseded definitions stay in history. The `ORIGIN` column points back to the top-level original; `show` also names the immediate predecessor. You can inspect old intent without making it the default view.
+The default list contains pending and in-progress tasks. Completed, cancelled and evolved definitions stay in history. The `ORIGIN` column points back to the top-level original; `show` also names the immediate predecessor. You can inspect old intent without making it the default view.
 
 Lists default to 20 rows and print a continuation command when more remain:
 
@@ -141,7 +141,7 @@ The note index, task views and notification events do not contain long bodies. M
 
 Deleting a note removes its title and body while keeping a small deletion record for historical references. Supply the current task claim while the task is in progress. Deleting the current note clears the latest progress display; an older title is not substituted. Freed body pages can be reused, but deletion does not promise to shrink the database file. There is no compaction command.
 
-Existing `progress --text` and `--text-file` invocations still work. Input that is already a valid title becomes a title-only note; other text is preserved as a body with a derived title. Legacy `--text-file` retains its 1 MiB input limit; use `--title` and streaming `--body-file` for larger bodies. Supersession leaves old notes with the original task; carry essential facts into the handoff and successor briefs.
+Existing `progress --text` and `--text-file` invocations still work. Input that is already a valid title becomes a title-only note; other text is preserved as a body with a derived title. Legacy `--text-file` retains its 1 MiB input limit; use `--title` and streaming `--body-file` for larger bodies. Evolution leaves old notes with the original task; carry essential facts into the handoff and successor briefs.
 
 A heartbeat only refreshes activity and is silent by default:
 
@@ -151,9 +151,9 @@ taskctl tasks heartbeat T1 --claim CLAIM_TOKEN
 
 Hooks can handle heartbeats. Agents still need to record what they achieved, what remains and any useful paths or decisions. Activity alone cannot tell you whether the work is advancing.
 
-### Replace a task when a substantial chunk is finished
+### Evolve a task as the remaining work changes
 
-If the original brief now describes mostly completed work, supersede it with a crisp description of what remains. For the still-claimed `T1`, save this as `remaining.json`:
+Use `tasks evolve` when substantial progress or a discovery makes the current brief stale. It retires that definition and creates **new task IDs** describing the remaining work, including newly discovered work. Preserve completed work, verification and useful repository paths in the summary. For the still-claimed `T1`, save this as `remaining.json`:
 
 ```json
 {
@@ -173,16 +173,18 @@ Read the current revision, then use it with the current claim:
 
 ```sh
 taskctl tasks show T1 --json
-taskctl tasks supersede T1 --claim CLAIM_TOKEN --revision REVISION --file remaining.json
+taskctl tasks evolve T1 --claim CLAIM_TOKEN --revision REVISION --file remaining.json
 taskctl tasks in-progress
 taskctl tasks available
 ```
 
-The replacement becomes the current task; `T1` remains discoverable as `superseded`. `continue_with` claims the ready replacement for the same worker and returns a **new claim token**. Use the returned task ID and token from then on. Omit `continue_with` to leave replacements pending for other agents.
+The replacements become the current tasks; `T1`'s definition becomes immutable and remains discoverable as `evolved`. Its old claim cannot change either definition. `continue_with` names a ready replacement by its unique plan key, claims it for the same worker and returns a **new claim token**. Use the returned task ID and token from then on. Omit `continue_with` to leave replacements pending for other agents.
 
-Tags, metadata, prerequisites and scratch references carry forward. Each new brief must stand on its own. A prerequisite or subscription on `T1` follows its replacements, so `T3` keeps waiting for the remaining CSV work. An original succeeds only when every replacement branch completes; its stored state remains `superseded`.
+Only the current claimer can evolve in-progress work; original authorship grants no extra authority. Pending tasks need the current revision but no claim. If the revision conflicts, reread the task and rebuild the plan with any intervening changes.
 
-For a small correction, use `tasks edit ID --revision REVISION --brief-file FILE`, with `--claim` when owned. When work is finished, record the actual result and verification:
+Tags, metadata, prerequisites and scratch references carry forward. Each new brief must stand on its own. A prerequisite or subscription on `T1` follows its replacements, so `T3` keeps waiting for the remaining CSV work. An original succeeds only when every replacement branch completes; its reported state remains `evolved`.
+
+For a small correction, use `tasks edit ID --revision REVISION --brief-file FILE`, with `--claim` when owned. Editing keeps the same task ID. When work is finished, record the actual result and verification:
 
 ```sh
 taskctl tasks complete TASK_ID --claim CLAIM_TOKEN --summary 'Implemented row-numbered errors; parser tests pass.'
@@ -204,6 +206,8 @@ taskctl tasks takeover TASK_ID --expected-claim OLD_CLAIM_TOKEN \
 ```
 
 Takeover returns a new token. Old tokens can no longer change the task, but taskctl cannot stop an old process writing files. Inactivity never releases ownership automatically.
+
+If you return to find another worker owns the task, stop working on it, read the current state and coordinate a handoff. The current owner can release it, then you can claim it with a fresh token. Copying their token would bypass that ownership handoff.
 
 If a command's response is lost, read current state before retrying. For task creation that may be retried, supply a stable `--request-id`; equivalent input with the same key returns the existing task.
 
@@ -263,7 +267,7 @@ taskctl scratch cleanup --dry-run
 taskctl scratch cleanup
 ```
 
-Keep important code, results and decisions in the repository, and link to them from the task. Scratch remains while a current task references it, including inherited references after supersession. Once no current task needs it, the default cleanup grace is seven days. Cleanup runs in bounded passes after selected mutations or through `scratch cleanup`. Attached worktrees and metadata paths are never cleanup targets.
+Keep important code, results and decisions in the repository, and link to them from the task. Scratch remains while a current task references it, including inherited references after evolution. Once no current task needs it, the default cleanup grace is seven days. Cleanup runs in bounded passes after selected mutations or through `scratch cleanup`. Attached worktrees and metadata paths are never cleanup targets.
 
 | Data | Location |
 | --- | --- |
@@ -293,9 +297,13 @@ Restore creates a **new project** and leaves the source intact. It preserves tas
 
 Use `taskctl --help` for exact operation names and flags. Commands reject unknown flags. With `--json`, data goes to stdout and structured errors to stderr. Exit codes are 0 success, 1 operational failure, 2 invalid input, 3 conflict or busy, 4 cancelled watched work, 5 timeout, and 130 interrupted watch.
 
+Version 0.4.0 names the replacement operation `evolve` and reports its state and event kind as `evolved`. The old `supersede` command and `superseded` status filter remain accepted. JSON consumers matching those output strings should use `evolved`; existing SQLite stores, backups and running old watchers remain compatible. See the [compatibility decision](docs/adr/0008-evolve-public-names.md).
+
 - [Agent skill](skills/taskctl/SKILL.md): activation conditions and links to instructions for the operation at hand.
 - [Design](docs/DESIGN.md) and [decisions](docs/adr/): states, concurrency and notification semantics.
 - [Performance](docs/PERFORMANCE.md): measured scaling, memory use and limits.
+- [Beads comparison](docs/BEADS_COMPARISON.md): same-host CLI latency, memory and concurrent operations.
+- [Naming evaluation](docs/EVOLVE_EVALUATION.md): fresh Luna readers of `supersede` and `evolve` README variants.
 - [Note storage validation](docs/NOTES_VALIDATION.md): streaming memory measurements, migration and process-kill tests.
 - [Validation](docs/VALIDATION.md) and [chaos testing](docs/CHAOS_VALIDATION.md): test evidence and remaining limits.
 - [Changelog](CHANGELOG.md): changes between versions.

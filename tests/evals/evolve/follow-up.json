@@ -1,0 +1,8 @@
+{
+  "method": "One additional fresh reader of the revised README; a post-review documentation check, not part of the A/B comparison.",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "medium",
+  "source": "readme-final.md",
+  "sha256": "f43659b6a65c8d93fee8837fd458e9e5e00c8e543e8c5af1aaa23646567916b4",
+  "scenarios": "scenarios.json"
+}

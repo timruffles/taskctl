@@ -105,7 +105,7 @@ func TestScratchRetentionFollowsReplacementReferencesAndGrace(t *testing.T) {
 		}
 	}
 	assertNone(0)
-	children, err := s.Supersede(original.ID, "", original.Revision, SupersedeSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "First", Brief: "First work"}, {Title: "Second", Brief: "Second work"}}})
+	children, err := s.Evolve(original.ID, "", original.Revision, EvolveSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "First", Brief: "First work"}, {Title: "Second", Brief: "Second work"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestScratchChangesDoNotRefreshUnrelatedAreas(t *testing.T) {
 			t.Fatalf("active scratch changed during cleanup: %v %v", areas, err)
 		}
 	}
-	children, err := s.Supersede(current.ID, "", current.Revision, SupersedeSpec{Summary: "Fresh remaining work", Replacements: []CreateSpec{{Title: "Remaining work", Brief: "Finish the work using its scratch"}}})
+	children, err := s.Evolve(current.ID, "", current.Revision, EvolveSpec{Summary: "Fresh remaining work", Replacements: []CreateSpec{{Title: "Remaining work", Brief: "Finish the work using its scratch"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

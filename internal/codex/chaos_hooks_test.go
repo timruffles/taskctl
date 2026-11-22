@@ -19,7 +19,7 @@ func TestChaosHookLargeInitialSnapshotAndEventsRemainDeliverable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	children, err := s.Supersede(original.ID, "", original.Revision, store.SupersedeSpec{Summary: "three active branches", Replacements: []store.CreateSpec{
+	children, err := s.Evolve(original.ID, "", original.Revision, store.EvolveSpec{Summary: "three active branches", Replacements: []store.CreateSpec{
 		{Title: strings.Repeat("\"", 180), Brief: "first branch"},
 		{Title: strings.Repeat("\"", 180), Brief: "second branch"},
 		{Title: strings.Repeat("\"", 180), Brief: "third branch"},

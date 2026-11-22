@@ -1,0 +1,169 @@
+{
+  "old_binary": {
+    "version": "taskctl 0.3.0",
+    "sha256": "2f4e9f6c4bbbc4b67dd505ea270fa23883a1890fafb830f8518e261002202321"
+  },
+  "new_binary": {
+    "version": "taskctl 0.4.0",
+    "sha256": "a2538ba35bf4dec568def147078ab4fcf8447b789af54c1f9022347b2196e71c"
+  },
+  "result": "passed",
+  "partial_outcomes": {
+    "old": "pending",
+    "new": "pending"
+  },
+  "final_outcome": "completed",
+  "public_states": {
+    "old": "superseded",
+    "new": "evolved"
+  },
+  "schema": "2",
+  "old_watcher_records": [
+    {
+      "cursor": 3,
+      "snapshot": {
+        "task_id": "T1",
+        "outcome": "pending",
+        "available": false,
+        "tasks": [
+          {
+            "id": "T1",
+            "title": "Deliver parser",
+            "status": "in_progress",
+            "available": false,
+            "owner": "worker",
+            "updated_at": "2026-11-22T14:15:19.211118559Z"
+          }
+        ],
+        "omitted": 0
+      },
+      "type": "snapshot"
+    },
+    {
+      "cursor": 4,
+      "event": {
+        "id": 4,
+        "task_id": "T1",
+        "kind": "superseded",
+        "message": "Parser implemented; error handling and integration remain.",
+        "data": {
+          "continued_task": "T2",
+          "previous_owner": "worker",
+          "replacement_ids": [
+            "T2",
+            "T3"
+          ]
+        },
+        "created_at": "2026-11-22T14:15:19.228567445Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 5,
+      "event": {
+        "id": 5,
+        "task_id": "T2",
+        "kind": "created",
+        "message": "Verify errors",
+        "data": {
+          "origin_id": "T1",
+          "parent_id": "T1"
+        },
+        "created_at": "2026-11-22T14:15:19.228606704Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 6,
+      "event": {
+        "id": 6,
+        "task_id": "T3",
+        "kind": "created",
+        "message": "Verify integration",
+        "data": {
+          "origin_id": "T1",
+          "parent_id": "T1"
+        },
+        "created_at": "2026-11-22T14:15:19.228628868Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 7,
+      "event": {
+        "id": 7,
+        "task_id": "T2",
+        "kind": "claimed",
+        "message": "Continued by worker",
+        "data": {
+          "claim_id": "Cc5798c4e20b1c4622ea67440d710ee3b",
+          "owner": "worker",
+          "previous_task": "T1"
+        },
+        "created_at": "2026-11-22T14:15:19.228950935Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 8,
+      "event": {
+        "id": 8,
+        "task_id": "T3",
+        "kind": "available",
+        "message": "Ready to claim",
+        "data": {},
+        "created_at": "2026-11-22T14:15:19.229063736Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 9,
+      "event": {
+        "id": 9,
+        "task_id": "T2",
+        "kind": "completed",
+        "message": "Error tests passed.",
+        "data": {
+          "owner": "worker"
+        },
+        "created_at": "2026-11-22T14:15:19.256629446Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 10,
+      "event": {
+        "id": 10,
+        "task_id": "T3",
+        "kind": "claimed",
+        "message": "Claimed by tester",
+        "data": {
+          "claim_id": "C49dad575a9e87eae2cbe08251dee3910",
+          "owner": "tester"
+        },
+        "created_at": "2026-11-22T14:15:19.289891804Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 11,
+      "event": {
+        "id": 11,
+        "task_id": "T3",
+        "kind": "completed",
+        "message": "Integration tests passed.",
+        "data": {
+          "owner": "tester"
+        },
+        "created_at": "2026-11-22T14:15:19.295637341Z"
+      },
+      "type": "event"
+    },
+    {
+      "cursor": 11,
+      "outcome": "completed",
+      "task_id": "T1",
+      "type": "outcome"
+    }
+  ]
+}

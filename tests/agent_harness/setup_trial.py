@@ -35,7 +35,7 @@ plan={'summary':'Contract and file ownership agreed in examples/ledger/CONTRACT.
 {'key':'csv','title':'Implement CSV input and checked totals','brief':'Implement shared Transaction and Summary types, ReadCSV and Summarize from CONTRACT.md. Own csv.go, csv_test.go, summary.go, summary_test.go. Test CSV errors and separate category/total overflow.','tags':['csv']},
 {'key':'cli','title':'Implement ledger command','brief':'Implement cmd/ledger main and tests against CONTRACT.md. Own cmd/ledger only initially. Subscribe to original T1; recover a confirmed crashed amount worker with exact-token takeover.','tags':['cli']} ]}
 planfile=root/'initial-plan.json';planfile.write_text(json.dumps(plan))
-split=call('tasks','supersede',top['id'],'--claim',owner['claim_id'],'--revision',str(owner['revision']),'--file',str(planfile))
+split=call('tasks','evolve',top['id'],'--claim',owner['claim_id'],'--revision',str(owner['revision']),'--file',str(planfile))
 integration=call('tasks','create','--title','Verify recovered ledger end to end','--brief','Run all race tests and actual CLI fixtures, then verify task lineage, ownership fencing and notification acknowledgements.','--prerequisite',top['id'],'--tag','integration')
 subs={name:call('tasks','subscribe',top['id'],'--session',name) for name in ['chaos-a','chaos-b','chaos-c']}
 cfg={'binary':str(binary),'go':go,'project_id':project_id,'workdir':str(work),'environment':{k:env[k] for k in ['XDG_DATA_HOME','XDG_STATE_HOME','XDG_CONFIG_HOME','TASKCTL_PROJECT','TMPDIR','GOCACHE','GOGC','GOMEMLIMIT','GOFLAGS']}}

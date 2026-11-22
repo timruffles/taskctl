@@ -14,7 +14,7 @@ Use the assigned project ID explicitly when the current directory may select ano
 | What did an earlier definition say? | `taskctl tasks history ID --json` |
 | Has an original task's whole scope finished? | `taskctl tasks watch ID --once --json` |
 
-Filter with relevant `--tag` values; repeated tags mean AND. Default lists contain pending and in-progress definitions. Report superseded originals as history, not additional remaining work. `origin_id` identifies the top-level original; `parent_id` identifies the immediate predecessor.
+Filter with relevant `--tag` values; repeated tags mean AND. Default lists contain pending and in-progress definitions. Report evolved originals as history, not additional remaining work. `origin_id` identifies the top-level original; `parent_id` identifies the immediate predecessor.
 
 Follow `omitted` and `next_offset` before making claims about an entire task list. History, subscription and scratch pages use `more` and `next_offset`; notes use `more` and `next_before`, passed as `--before`. Consult history for a specific unanswered question. Task views include the latest progress title; note lists contain titles and metadata only. `notes read` streams one Markdown body and does not accept `--json`.
 

@@ -8,11 +8,11 @@ Date: 2026-11-22
 
 ### Current work and history
 
-Everyday views show the current frontier of work. When substantial progress or changed understanding makes a task definition stale, an agent replaces it with one or more fresh tasks. The old task becomes superseded and remains discoverable through history links. Agents decide when replacement is useful; there is no progress score or automatic judgement of substantive progress.
+Everyday views show the current frontier of work. When substantial progress or changed understanding makes a task definition stale, an agent replaces it with one or more fresh tasks. The old task becomes evolved and remains discoverable through history links. Agents decide when replacement is useful; there is no progress score or automatic judgement of substantive progress.
 
 Each replacement has a self-contained brief describing the remaining work, relevant completed work and decisions, and useful references. Reading ancestors is optional. The original intention remains traceable.
 
-Completion watches follow replacements and provide progress updates. Success means all remaining branches completed. Cancellation is distinct from success and is reported to the watcher; other branches continue normally. Superseded records stay superseded and need no separate maintenance.
+Completion watches follow replacements and provide progress updates. Success means all remaining branches completed. Cancellation is distinct from success and is reported to the watcher; other branches continue normally. Evolved records stay evolved and need no separate maintenance.
 
 ### Availability and ownership
 
@@ -32,7 +32,7 @@ A progress note has a required single-line title of at most 120 Unicode characte
 
 `tasks.sqlite` holds note metadata and the latest title. A separate `notes.sqlite` stores Markdown bodies in indexed 64 KiB chunks. The body byte length and SHA-256 support validation and bounded streaming without file-position indexes or scanning older notes. Body publication precedes its main-database reference; interrupted publication can leave unreferenced body data, rather than a successful task update that points to an unfinished body. Reads, deletion and complete backups coordinate with publication.
 
-Deletion clears the note's visible text and body, retaining a small deletion record. Deleting the latest note clears current progress rather than selecting an older title. Freed pages remain available for reuse; physical database compaction is not part of this release. Note bodies are durable and are not subject to scratch cleanup. Supersession does not copy note history into new tasks: essential facts belong in a deliberate handoff and self-contained successor briefs.
+Deletion clears the note's visible text and body, retaining a small deletion record. Deleting the latest note clears current progress rather than selecting an older title. Freed pages remain available for reuse; physical database compaction is not part of this release. Note bodies are durable and are not subject to scratch cleanup. Evolution does not copy note history into new tasks: essential facts belong in a deliberate handoff and self-contained successor briefs.
 
 Legacy `progress --text` and `--text-file` remain supported. Input that is already a valid title creates a title-only note; other text is preserved as a body with a derived title. Legacy file input is buffered with a 1 MiB cap; the new `--body-file` path streams. Upgrading a schema-version-1 store moves its historical progress text into the new format. Explicit note reads stream Markdown; `--json` is available for note metadata, not the body stream.
 
@@ -82,7 +82,7 @@ Task lists default to 20 and cap at 200, with exact totals and continuation offs
 
 ### Work and memory bounds
 
-Availability traverses only the prerequisites of the tasks being considered and the replacement descendants needed to resolve them. Progress, claims, takeovers, edits, tags and metadata do not perform a database-wide availability comparison. Mutations that can make work ready select the affected candidates and insert availability events in the same transaction. Completing a leaf includes dependencies on its superseded ancestors, including tasks outside the watched subtree.
+Availability traverses only the prerequisites of the tasks being considered and the replacement descendants needed to resolve them. Progress, claims, takeovers, edits, tags and metadata do not perform a database-wide availability comparison. Mutations that can make work ready select the affected candidates and insert availability events in the same transaction. Completing a leaf includes dependencies on its evolved ancestors, including tasks outside the watched subtree.
 
 Normal dependency changes check reachability from the proposed edge. Restore's full-graph check uses indexed SQLite temporary tables and topological removal, without retaining a graph-sized Go map or recursive Go stack. Temporary storage uses files when it grows beyond SQLite's working cache.
 
@@ -116,7 +116,7 @@ An external subscription watcher can enqueue a compact wake for idle resumption 
 ## Current implementation choices
 
 - `modernc.org/sqlite` embeds SQLite. WAL, full synchronous commits, foreign keys, a five-second busy timeout and short immediate write transactions are enabled. Consistent pure reads use deferred transactions, and large temporary SQL structures can spill to disk.
-- Claims use random fencing tokens. Edits and supersession also compare the expected revision. Supersession input is a strict JSON object; ownership transfer is explicit through `continue_with`.
+- Claims use random fencing tokens. Edits and evolution also compare the expected revision. Evolution input is a strict JSON object; ownership transfer is explicit through `continue_with`.
 - An original’s completion outcome follows all replacement branches; cancellation is distinct. Effective dependency cycles include replacement edges.
 - Lists default to 20 and cap at 200. Tags use AND filters; replacement tasks inherit tags, metadata, prerequisites and scratch references.
 - Session and worktree references are string metadata; they never grant ownership or cause worktree deletion.

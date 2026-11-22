@@ -147,8 +147,8 @@ func TestCoreEveryOwnerMutationRejectsReplacedClaim(t *testing.T) {
 		"tag":          func() error { return s.Tag(original.ID, original.ClaimID, "stale", false) },
 		"metadata":     func() error { return s.MetadataSet(original.ID, original.ClaimID, "notes", "stale") },
 		"prerequisite": func() error { return s.AddPrerequisite(original.ID, original.ClaimID, dependency.ID, false) },
-		"supersede": func() error {
-			_, err := s.Supersede(original.ID, original.ClaimID, current.Revision, SupersedeSpec{Summary: "stale", Replacements: []CreateSpec{{Title: "Replacement", Brief: "Independent remaining work"}}})
+		"evolve": func() error {
+			_, err := s.Evolve(original.ID, original.ClaimID, current.Revision, EvolveSpec{Summary: "stale", Replacements: []CreateSpec{{Title: "Replacement", Brief: "Independent remaining work"}}})
 			return err
 		},
 	}
@@ -206,7 +206,7 @@ func TestCoreReleasePreservesProgressAndInvalidatesOldClaim(t *testing.T) {
 	}
 }
 
-func TestCoreSupersedeTransfersContextAndFollowsAllReplacements(t *testing.T) {
+func TestCoreEvolveTransfersContextAndFollowsAllReplacements(t *testing.T) {
 	s := newTaskTestStore(t)
 	prerequisite := mustCompleteTask(t, s, mustClaimTask(t, s, mustCreateTask(t, s, CreateSpec{Title: "Design"}).ID, "planner"))
 	original := mustCreateTask(t, s, CreateSpec{Title: "Implementation", Brief: "Original full scope", Tags: []string{"feature", "backend"}, Metadata: map[string]string{"component": "store", "piece": "original"}, Prerequisites: []string{prerequisite.ID}})
@@ -218,7 +218,7 @@ func TestCoreSupersedeTransfersContextAndFollowsAllReplacements(t *testing.T) {
 	originalNumber, _ := taskNumber(original.ID)
 	attachCoreScratch(t, s, originalNumber)
 	dependent := mustCreateTask(t, s, CreateSpec{Title: "Integration review", Prerequisites: []string{original.ID}})
-	children, err := s.Supersede(original.ID, original.ClaimID, original.Revision, SupersedeSpec{
+	children, err := s.Evolve(original.ID, original.ClaimID, original.Revision, EvolveSpec{
 		Summary:      "Storage foundation is complete; finish transactions and verification",
 		ContinueWith: "transactions",
 		Replacements: []CreateSpec{
@@ -252,7 +252,7 @@ func TestCoreSupersedeTransfersContextAndFollowsAllReplacements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if old.Status != "superseded" || old.ClaimID != "" || old.Progress != original.Progress || old.Result == "" {
+	if old.Status != "evolved" || old.ClaimID != "" || old.Progress != original.Progress || old.Result == "" {
 		t.Fatalf("original history was lost: %+v", old)
 	}
 	_, err = s.Complete(original.ID, original.ClaimID, "stale completion")
@@ -269,7 +269,7 @@ func TestCoreSupersedeTransfersContextAndFollowsAllReplacements(t *testing.T) {
 	}
 	mustClaimTask(t, s, dependent.ID, "reviewer")
 	old, _ = s.Get(original.ID)
-	if old.Status != "superseded" {
+	if old.Status != "evolved" {
 		t.Fatal("aggregate completion rewrote historical superseded status")
 	}
 	history, more, err := s.HistoryPage(children[1].ID, 20, 0)
@@ -282,26 +282,26 @@ func TestCoreSupersedeTransfersContextAndFollowsAllReplacements(t *testing.T) {
 	}
 }
 
-func TestCoreSupersedeFailureRollsBackTasksEventsAndOwnership(t *testing.T) {
+func TestCoreEvolveFailureRollsBackTasksEventsAndOwnership(t *testing.T) {
 	tests := []struct {
 		name string
-		spec func(Task, Task) SupersedeSpec
+		spec func(Task, Task) EvolveSpec
 		code string
 	}{
-		{"unknown sibling", func(a, b Task) SupersedeSpec {
-			return SupersedeSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "Piece", Brief: "Remaining work", Prerequisites: []string{"@missing"}}}}
+		{"unknown sibling", func(a, b Task) EvolveSpec {
+			return EvolveSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "Piece", Brief: "Remaining work", Prerequisites: []string{"@missing"}}}}
 		}, "invalid_input"},
-		{"sibling cycle", func(a, b Task) SupersedeSpec {
-			return SupersedeSpec{Summary: "Split", Replacements: []CreateSpec{{Key: "a", Title: "A", Brief: "A work", Prerequisites: []string{"@b"}}, {Key: "b", Title: "B", Brief: "B work", Prerequisites: []string{"@a"}}}}
+		{"sibling cycle", func(a, b Task) EvolveSpec {
+			return EvolveSpec{Summary: "Split", Replacements: []CreateSpec{{Key: "a", Title: "A", Brief: "A work", Prerequisites: []string{"@b"}}, {Key: "b", Title: "B", Brief: "B work", Prerequisites: []string{"@a"}}}}
 		}, "conflict"},
-		{"ancestor cycle", func(a, b Task) SupersedeSpec {
-			return SupersedeSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "Piece", Brief: "Remaining work", Prerequisites: []string{a.ID}}}}
+		{"ancestor cycle", func(a, b Task) EvolveSpec {
+			return EvolveSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "Piece", Brief: "Remaining work", Prerequisites: []string{a.ID}}}}
 		}, "conflict"},
-		{"downstream cycle", func(a, b Task) SupersedeSpec {
-			return SupersedeSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "Piece", Brief: "Remaining work", Prerequisites: []string{b.ID}}}}
+		{"downstream cycle", func(a, b Task) EvolveSpec {
+			return EvolveSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "Piece", Brief: "Remaining work", Prerequisites: []string{b.ID}}}}
 		}, "conflict"},
-		{"blocked continuation", func(a, b Task) SupersedeSpec {
-			return SupersedeSpec{Summary: "Split", ContinueWith: "b", Replacements: []CreateSpec{{Key: "a", Title: "A", Brief: "A work"}, {Key: "b", Title: "B", Brief: "B work", Prerequisites: []string{"@a"}}}}
+		{"blocked continuation", func(a, b Task) EvolveSpec {
+			return EvolveSpec{Summary: "Split", ContinueWith: "b", Replacements: []CreateSpec{{Key: "a", Title: "A", Brief: "A work"}, {Key: "b", Title: "B", Brief: "B work", Prerequisites: []string{"@a"}}}}
 		}, "blocked"},
 	}
 	for _, test := range tests {
@@ -310,15 +310,15 @@ func TestCoreSupersedeFailureRollsBackTasksEventsAndOwnership(t *testing.T) {
 			a := mustClaimTask(t, s, mustCreateTask(t, s, CreateSpec{Title: "Original"}).ID, "worker")
 			b := mustCreateTask(t, s, CreateSpec{Title: "Downstream", Prerequisites: []string{a.ID}})
 			before := coreEventCount(t, s)
-			_, err := s.Supersede(a.ID, a.ClaimID, a.Revision, test.spec(a, b))
+			_, err := s.Evolve(a.ID, a.ClaimID, a.Revision, test.spec(a, b))
 			assertCoreError(t, err, test.code)
 			after, err := s.Get(a.ID)
 			if err != nil || !reflect.DeepEqual(a, after) {
-				t.Fatalf("failed supersession changed original: %+v, %v", after, err)
+				t.Fatalf("failed evolution changed original: %+v, %v", after, err)
 			}
 			_, total, err := s.List("all", nil, 20, 0)
 			if err != nil || total != 2 || coreEventCount(t, s) != before {
-				t.Fatalf("failed supersession leaked tasks/events: total=%d err=%v", total, err)
+				t.Fatalf("failed evolution leaked tasks/events: total=%d err=%v", total, err)
 			}
 		})
 	}
@@ -327,7 +327,7 @@ func TestCoreSupersedeFailureRollsBackTasksEventsAndOwnership(t *testing.T) {
 func TestCoreDependenciesUseReplacementEdgesForCycleDetection(t *testing.T) {
 	s := newTaskTestStore(t)
 	a := mustCreateTask(t, s, CreateSpec{Title: "Original"})
-	children, err := s.Supersede(a.ID, "", a.Revision, SupersedeSpec{Summary: "Replanned", Replacements: []CreateSpec{{Title: "Successor", Brief: "Remaining work"}}})
+	children, err := s.Evolve(a.ID, "", a.Revision, EvolveSpec{Summary: "Replanned", Replacements: []CreateSpec{{Title: "Successor", Brief: "Remaining work"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,11 +343,11 @@ func TestCoreDependenciesUseReplacementEdgesForCycleDetection(t *testing.T) {
 func TestCoreNestedCancellationDominatesPendingSibling(t *testing.T) {
 	s := newTaskTestStore(t)
 	a := mustCreateTask(t, s, CreateSpec{Title: "Original"})
-	children, err := s.Supersede(a.ID, "", a.Revision, SupersedeSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "A", Brief: "A scope"}, {Title: "B", Brief: "B scope"}}})
+	children, err := s.Evolve(a.ID, "", a.Revision, EvolveSpec{Summary: "Split", Replacements: []CreateSpec{{Title: "A", Brief: "A scope"}, {Title: "B", Brief: "B scope"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	grandchildren, err := s.Supersede(children[0].ID, "", children[0].Revision, SupersedeSpec{Summary: "Refine", Replacements: []CreateSpec{{Title: "A1", Brief: "A1 scope"}, {Title: "A2", Brief: "A2 scope"}}})
+	grandchildren, err := s.Evolve(children[0].ID, "", children[0].Revision, EvolveSpec{Summary: "Refine", Replacements: []CreateSpec{{Title: "A1", Brief: "A1 scope"}, {Title: "A2", Brief: "A2 scope"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestCoreRevisionChecksAndTerminalImmutability(t *testing.T) {
 	title := "Stale edit"
 	_, err := s.Edit(task.ID, "", task.Revision, &title, nil)
 	assertCoreError(t, err, "conflict")
-	_, err = s.Supersede(task.ID, "", task.Revision, SupersedeSpec{Summary: "Stale replan", Replacements: []CreateSpec{{Title: "Replacement", Brief: "Remaining work"}}})
+	_, err = s.Evolve(task.ID, "", task.Revision, EvolveSpec{Summary: "Stale replan", Replacements: []CreateSpec{{Title: "Replacement", Brief: "Remaining work"}}})
 	assertCoreError(t, err, "conflict")
 	claimed := mustClaimTask(t, s, task.ID, "worker")
 	completed := mustCompleteTask(t, s, claimed)
@@ -516,7 +516,7 @@ func TestCoreAvailabilityWaitsForEveryReplacementBranch(t *testing.T) {
 	a := mustCreateTask(t, s, CreateSpec{Title: "Original prerequisite"})
 	b := mustCreateTask(t, s, CreateSpec{Title: "Waiting task", Prerequisites: []string{a.ID}})
 	subscription := subscribeCoreTask(t, s, b.ID)
-	children, err := s.Supersede(a.ID, "", a.Revision, SupersedeSpec{Summary: "Split remaining work", Replacements: []CreateSpec{{Title: "First", Brief: "First scope"}, {Title: "Second", Brief: "Second scope"}}})
+	children, err := s.Evolve(a.ID, "", a.Revision, EvolveSpec{Summary: "Split remaining work", Replacements: []CreateSpec{{Title: "First", Brief: "First scope"}, {Title: "Second", Brief: "Second scope"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

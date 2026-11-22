@@ -259,6 +259,7 @@ func readSnapshot(q Queryer, id int64, summary bool) (Snapshot, error) {
 			return result, err
 		}
 		task.ID = taskID(n)
+		task.Status = publicEvolutionName(task.Status)
 		result.Truncated = result.Truncated || truncated
 		result.Tasks = append(result.Tasks, task)
 	}

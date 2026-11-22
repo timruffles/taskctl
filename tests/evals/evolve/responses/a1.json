@@ -1,0 +1,75 @@
+{
+  "paraphrase": "taskctl is a local CLI for coordinating task ownership, progress, task replacement, notifications and disposable scratch storage across coding agents. Its task database and Markdown note bodies are stored separately outside the repository, and agents in separate worktrees can share a project. The README explains setup, claiming work, recording progress, replacing stale task definitions while preserving history, monitoring work and backing up data.",
+  "answers": [
+    {
+      "id": "remaining",
+      "command": "taskctl tasks supersede T7 --claim C7 --revision 12 --file remaining.json",
+      "plan": {
+        "summary": "CSV parsing and the CLI are implemented and verified. Malformed-row errors and integration tests remain.",
+        "replacements": [
+          {
+            "key": "errors",
+            "title": "Report malformed CSV errors",
+            "brief": "Implement and test malformed-row errors for CSV input. State the files to change and the checks that establish completion."
+          },
+          {
+            "key": "integration",
+            "title": "Add CSV integration tests",
+            "brief": "Add integration tests for CSV import. State the files to change and the checks that establish completion."
+          }
+        ],
+        "continue_with": "errors"
+      },
+      "explanation": "Supersede replaces a mostly completed task definition with tasks describing the remaining work. Each replacement brief must stand on its own. The command uses the current claim and revision."
+    },
+    {
+      "id": "correction",
+      "command": "taskctl tasks edit T8 --revision 4 --brief-file FILE --claim C8",
+      "explanation": "For a small correction, use edit. The README does not specify whether edit creates a new task ID."
+    },
+    {
+      "id": "checkpoint",
+      "command": "taskctl tasks progress T9 --claim C9 --title 'Investigation confirmed the existing plan.' --body-file evidence.md",
+      "explanation": "Progress records a checkpoint title and optional Markdown evidence. It does not retire T9."
+    },
+    {
+      "id": "identity",
+      "explanation": "No. After superseding, T7 remains discoverable as superseded, and the replacement becomes the current task. With continue_with, the ready replacement is claimed for the same worker and returns a new claim token. Use the returned replacement task ID and token from then on."
+    },
+    {
+      "id": "outcome",
+      "explanation": "No. A dependent task keeps waiting while any replacement branch remains incomplete, and a supervisor waiting on T10 follows replacements until the overall outcome is known. Once every replacement branch completes, T10's stored state remains superseded."
+    },
+    {
+      "id": "discovered",
+      "explanation": "Yes. Supersede is appropriate when the old brief mostly describes completed work; the replacement tasks should describe what remains, including newly discovered work. The README does not say superseding discards implemented code; it says to carry essential facts into the handoff and successor briefs."
+    },
+    {
+      "id": "stale_owner",
+      "explanation": "The README says supersede uses the current claim and revision. It does not specify whether a stale claim can supersede a task after takeover or whether original authorship grants authority. First inspect current state with tasks in-progress and tasks show ID; if taking over is needed, confirm the previous worker has stopped or isolate its worktree before using takeover."
+    },
+    {
+      "id": "handoff",
+      "command": "taskctl tasks supersede TASK_ID --claim CLAIM_TOKEN --revision REVISION --file remaining.json",
+      "explanation": "Omit continue_with to leave replacement tasks pending for other agents. Tags, metadata, prerequisites and scratch references carry forward, and each new brief must stand on its own. The README says supersession leaves old notes with the original task; carry essential facts into the handoff and successor briefs."
+    },
+    {
+      "id": "navigation",
+      "explanation": "Use `taskctl tasks in-progress` to see claimed work and its owner and last activity; use `taskctl tasks available` to see work that can be claimed. The ORIGIN column points to the top-level original, `tasks show ID` names the immediate predecessor, and `taskctl tasks history ID` shows original and replacement definitions. These let a supervisor trace task definitions without reading note bodies; progress views display the latest title and note reference."
+    },
+    {
+      "id": "finished",
+      "command": "taskctl tasks complete T12 --claim CLAIM_TOKEN --summary 'Implemented the work; verified all acceptance conditions.'",
+      "explanation": "Complete the task and record the actual result and verification. The README describes supersede for replacing a mostly completed brief with remaining work; it does not prescribe an empty replacement list."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "Nit",
+      "scope": "Install",
+      "description": "The README requires Go 1.26 or newer but does not link to Go installation instructions. A fresh reader who does not have that version installed must find setup steps elsewhere."
+    }
+  ],
+  "prior_preference": null,
+  "isolation_marker": null
+}

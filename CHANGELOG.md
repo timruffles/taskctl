@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-11-22
+
+- Rename `tasks supersede` to `tasks evolve`; task statuses and event kinds are reported as `evolved`. Existing command and status-filter spellings remain accepted as input aliases. Plan fields and operation semantics are unchanged.
+- Keep schema 2 and its durable spelling so existing databases, backups and already-running older watchers remain compatible. JSON consumers matching the old output spelling must use `evolved`.
+- Clarify new task IDs, immutable predecessor definitions, fresh continuation claims, small edits and recovery after losing ownership. Keep agent guidance in the relevant progressive-disclosure reference.
+- Record a controlled six-reader Luna comparison of README terminology, its limitations, and a reproducible Beads performance comparison.
+
 ## 0.3.0 — 2026-11-22
 
 Progress notes with bounded context and a separate body store.

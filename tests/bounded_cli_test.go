@@ -16,7 +16,7 @@ func TestDetailListsReportContinuation(t *testing.T) {
 		replacements[i] = map[string]string{"title": fmt.Sprintf("Remaining task %d", i), "brief": "Self-contained remaining scope"}
 	}
 	plan := writeSpec(t, f.root, "remaining.json", map[string]any{"summary": "Split remaining work", "replacements": replacements})
-	f.must("tasks", "supersede", original.ID, "--revision", fmt.Sprint(original.Revision), "--file", plan, "--json")
+	f.must("tasks", "evolve", original.ID, "--revision", fmt.Sprint(original.Revision), "--file", plan, "--json")
 	var history struct {
 		Tasks      []task `json:"tasks"`
 		More       bool   `json:"more"`

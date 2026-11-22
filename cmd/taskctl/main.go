@@ -15,8 +15,8 @@ import (
 	"taskctl/internal/store"
 )
 
-const version = "0.3.0"
-const help = `taskctl 0.3.0 — local task tracking
+const version = "0.4.0"
+const help = `taskctl 0.4.0 — local task tracking
 
 Select a project with --project ID, TASKCTL_PROJECT, or a .taskctl.json file.
 Flags may follow positional IDs. Read commands support --json except notes read.
@@ -35,7 +35,7 @@ tasks progress T1 --claim TOKEN --title TITLE [--body-file FILE|-]
 tasks heartbeat T1 --claim TOKEN
 tasks complete T1 --claim TOKEN --summary TEXT
 tasks cancel T1 --reason TEXT [--claim TOKEN]
-tasks supersede T1 --revision N --file PLAN.json [--claim TOKEN]
+tasks evolve T1 --revision N --file PLAN.json [--claim TOKEN]
 tasks edit T1 --revision N [--title TITLE] [--brief-file FILE] [--claim TOKEN]
 tasks tag T1 --tag TAG | untag T1 --tag TAG [--claim TOKEN]
 tasks metadata T1 --key KEY --value VALUE [--claim TOKEN]
@@ -66,7 +66,9 @@ Progress titles are single-line and at most 120 characters. Markdown bodies use 
 Legacy progress --text/--text-file preserves long text as a body and derives a short title.
 Directory backups include both databases. Single-file backups require no live note bodies.
 Exit codes: 0 success, 1 other failure, 2 usage, 3 conflict, 4 cancelled, 5 timeout.
-Supersede files contain {"summary":"...","replacements":[{"key":"a","title":"...","brief":"..."}],"continue_with":"a"}.
+Evolve files contain {"summary":"...","replacements":[{"key":"a","title":"...","brief":"..."}],"continue_with":"a"}.
+Evolve retires the original and creates new task IDs; edit keeps the same ID.
+Only the current claim can evolve in-progress work. continue_with returns a fresh claim.
 Replacement prerequisites may refer to new siblings as @key. Repeated --tag filters mean AND.
 Scratch is disposable. Put important work in the repository and reference it in a task.
 `
@@ -189,7 +191,7 @@ func run(o options, in io.Reader, out io.Writer) error {
 	}
 	if err == nil && o.pos[0] == "tasks" {
 		switch o.pos[1] {
-		case "complete", "cancel", "supersede", "create", "release":
+		case "complete", "cancel", "evolve", "supersede", "create", "release":
 			a.opportunisticCleanup()
 		}
 	}

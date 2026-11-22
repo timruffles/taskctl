@@ -32,7 +32,7 @@ func TestHookNotesStayQuietAndResumeShowsOnlyLatestTitles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	children, err := s.Supersede(root.ID, "", root.Revision, store.SupersedeSpec{Summary: "two branches", Replacements: []store.CreateSpec{
+	children, err := s.Evolve(root.ID, "", root.Revision, store.EvolveSpec{Summary: "two branches", Replacements: []store.CreateSpec{
 		{Title: "parser", Brief: "parse fields"}, {Title: "validator", Brief: "validate fields"},
 	}})
 	if err != nil {

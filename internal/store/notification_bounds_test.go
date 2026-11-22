@@ -91,7 +91,7 @@ func TestSummaryReadsBoundPayloadAndAdvertiseShortenedText(t *testing.T) {
 func TestEventSelectionUsesTaskIndexAndMergesDescendants(t *testing.T) {
 	s, _ := notificationStore(t)
 	root := notificationTask(t, s, "root")
-	children, err := s.Supersede(root.ID, "", root.Revision, SupersedeSpec{Summary: "split", Replacements: []CreateSpec{{Title: "one", Brief: "one"}, {Title: "two", Brief: "two"}}})
+	children, err := s.Evolve(root.ID, "", root.Revision, EvolveSpec{Summary: "split", Replacements: []CreateSpec{{Title: "one", Brief: "one"}, {Title: "two", Brief: "two"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

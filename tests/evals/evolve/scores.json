@@ -1,0 +1,527 @@
+{
+  "date": "2026-11-22",
+  "evaluation_kind": "manual explicit-coverage scoring of six fixed fresh-reader responses",
+  "rubric": "rubric.json",
+  "policy": {
+    "binary": "1 means the answer unambiguously covers every part of the predeclared criterion; 0 includes omission, abstention or ambiguity and is not automatically an incorrect belief.",
+    "scope": "Score each scenario's answer on its own. Do not infer missing rules from another answer or implementation knowledge.",
+    "commands": "Require the requested operation and required flags. Generic placeholders are accepted where the rubric does not demand literal scenario values; note execution limitations separately.",
+    "unprompted_requirements": "Keep the rubric fixed even where a criterion asks more than the question; identify such deductions explicitly.",
+    "scorer_limit": "A separate scoring agent saw the parent context and preferred name. Scoring was not blinded and no human adjudication was performed."
+  },
+  "aggregate": {
+    "a": {
+      "term": "supersede",
+      "runs": 3,
+      "covered": 49,
+      "possible": 60,
+      "per_run": [
+        {
+          "run": "a1",
+          "covered": 15,
+          "possible": 20
+        },
+        {
+          "run": "a2",
+          "covered": 17,
+          "possible": 20
+        },
+        {
+          "run": "a3",
+          "covered": 17,
+          "possible": 20
+        }
+      ]
+    },
+    "b": {
+      "term": "evolve",
+      "runs": 3,
+      "covered": 47,
+      "possible": 60,
+      "per_run": [
+        {
+          "run": "b1",
+          "covered": 16,
+          "possible": 20
+        },
+        {
+          "run": "b2",
+          "covered": 15,
+          "possible": 20
+        },
+        {
+          "run": "b3",
+          "covered": 16,
+          "possible": 20
+        }
+      ]
+    }
+  },
+  "responses": {
+    "a1": {
+      "variant": "a",
+      "source": "responses/a1.json",
+      "covered": 15,
+      "possible": 20,
+      "checks": {
+        "remaining": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "correction": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Chooses edit correctly but explicitly says whether the task ID changes is unspecified."
+        },
+        "checkpoint": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "identity": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "outcome": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "discovered": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Accepts discovered work and preserves implemented code. Mentions carrying essential facts into the handoff, but does not specify recording completed work and repository paths in the summary. This rubric requirement was broader than the question."
+        },
+        "stale_owner": {
+          "criteria": [
+            0,
+            0
+          ],
+          "note": "Explicitly declines to decide whether the stale token or original authorship grants authority. Inspects state and suggests takeover after checking the prior process or isolating its worktree; it does not describe coordinating with the current owner."
+        },
+        "handoff": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Correctly keeps notes on the predecessor and requires standalone briefs with essential facts, but does not explicitly include acceptance evidence."
+        },
+        "navigation": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "finished": {
+          "criteria": [
+            1,
+            1
+          ]
+        }
+      }
+    },
+    "a2": {
+      "variant": "a",
+      "source": "responses/a2.json",
+      "covered": 17,
+      "possible": 20,
+      "checks": {
+        "remaining": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "correction": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "checkpoint": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "identity": {
+          "criteria": [
+            0,
+            1
+          ],
+          "note": "Starts with 'No' and correctly moves work to the replacement, but then expressly says the old token's effect after replacement is not described. Conservative scoring treats immutability as not unambiguously established."
+        },
+        "outcome": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "discovered": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Preserves implementation and carries essential facts into handoff briefs, but does not specify completed-work and repository-path recording in the summary. This rubric requirement was broader than the question."
+        },
+        "stale_owner": {
+          "criteria": [
+            1,
+            1
+          ],
+          "note": "Reads state and coordinates with the current owner to obtain an authorized claim. Passes the literal rubric, but does not spell out release followed by a new claim."
+        },
+        "handoff": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Old notes stay on the predecessor and new briefs must stand alone, but acceptance evidence is not explicitly mentioned."
+        },
+        "navigation": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "finished": {
+          "criteria": [
+            1,
+            1
+          ]
+        }
+      }
+    },
+    "a3": {
+      "variant": "a",
+      "source": "responses/a3.json",
+      "covered": 17,
+      "possible": 20,
+      "checks": {
+        "remaining": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "correction": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "checkpoint": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "identity": {
+          "criteria": [
+            0,
+            1
+          ],
+          "note": "Uses the returned replacement and fresh token, but does not explicitly rule out later mutation of the original with the old claim. 'Not the token to use for continuing work' is narrower than immutability."
+        },
+        "outcome": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "discovered": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Explicitly preserves implementation but does not say to record completed work and repository paths in the summary. This rubric requirement was broader than the question."
+        },
+        "stale_owner": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Rejects stale authority and reads current state, but 'then use the current ownership and revision information' does not establish coordination or a new authorized claim."
+        },
+        "handoff": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "navigation": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "finished": {
+          "criteria": [
+            1,
+            1
+          ]
+        }
+      }
+    },
+    "b1": {
+      "variant": "b",
+      "source": "responses/b1.json",
+      "covered": 16,
+      "possible": 20,
+      "checks": {
+        "remaining": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "correction": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Uses edit but says only that the README does not say a new ID is created; it does not clearly answer that the same ID is retained."
+        },
+        "checkpoint": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "identity": {
+          "criteria": [
+            0,
+            1
+          ],
+          "note": "Correctly uses a new replacement ID/token, but says only that the README does not describe authority to mutate the old task. No unambiguous immutability rule."
+        },
+        "outcome": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "discovered": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Preserves implemented code but omits recording completed work and paths in the summary. This rubric requirement was broader than the question."
+        },
+        "stale_owner": {
+          "criteria": [
+            1,
+            1
+          ],
+          "note": "Rejects stale authority and says to obtain the current claim from its owner, meeting the rubric's literal coordination wording. This is an additional protocol risk: sharing a current claim is not an explicit ownership transfer and the response should instead ask the current owner to act or arrange release and a fresh claim."
+        },
+        "handoff": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Old notes remain with the original and new briefs stand alone, but acceptance evidence is not explicitly included."
+        },
+        "navigation": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "finished": {
+          "criteria": [
+            1,
+            1
+          ]
+        }
+      }
+    },
+    "b2": {
+      "variant": "b",
+      "source": "responses/b2.json",
+      "covered": 15,
+      "possible": 20,
+      "checks": {
+        "remaining": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "correction": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Correctly includes edit, claim and revision flags, so the first predeclared criterion passes. It leaves REVISION as a placeholder despite being given 4 and explicitly leaves the same-ID question unsettled."
+        },
+        "checkpoint": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "identity": {
+          "criteria": [
+            0,
+            1
+          ],
+          "note": "Uses returned replacement ID and fresh token but does not affirm that the old task is immutable."
+        },
+        "outcome": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "discovered": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Preserves implemented code but omits recording completed work and paths in the summary. This rubric requirement was broader than the question."
+        },
+        "stale_owner": {
+          "criteria": [
+            0,
+            0
+          ],
+          "note": "Quotes that old tokens cannot change a task, then says whether a former owner can evolve or original authorship grants authority is unspecified. It reads current state but only refers back to takeover, without coordinating with the current owner."
+        },
+        "handoff": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "navigation": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "finished": {
+          "criteria": [
+            1,
+            1
+          ]
+        }
+      }
+    },
+    "b3": {
+      "variant": "b",
+      "source": "responses/b3.json",
+      "covered": 16,
+      "possible": 20,
+      "checks": {
+        "remaining": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "correction": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Correct edit command, but says only that the README does not say a new ID is created rather than affirming the same ID."
+        },
+        "checkpoint": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "identity": {
+          "criteria": [
+            0,
+            1
+          ],
+          "note": "Explicitly says whether the original claim can still modify the original after evolution is unspecified. Correctly uses a new ID/token to continue."
+        },
+        "outcome": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "discovered": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Preserves implemented code and includes newly discovered work, but omits recording completed work and paths in the summary. This rubric requirement was broader than the question."
+        },
+        "stale_owner": {
+          "criteria": [
+            1,
+            0
+          ],
+          "note": "Rejects retained credentials as current authority and inspects state, but explicitly reports no procedure for a former owner and does not propose coordinating with the current owner."
+        },
+        "handoff": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "navigation": {
+          "criteria": [
+            1,
+            1
+          ]
+        },
+        "finished": {
+          "criteria": [
+            1,
+            1
+          ]
+        }
+      }
+    }
+  },
+  "findings": [
+    {
+      "kind": "shared_success",
+      "description": "All six chose the intended replacement, edit, progress and complete operations; all supplied structurally valid remaining-work plans, used new continuation IDs/tokens, followed all replacement branches and preserved history."
+    },
+    {
+      "kind": "documentation_or_cautious_abstention",
+      "description": "The README does not explicitly state same-ID edits or original-task immutability. Most incomplete answers concern those rules or the former owner's next step."
+    },
+    {
+      "kind": "rubric_limit",
+      "description": "All six lost discovered criterion 2 because none explicitly included repository paths and completed-work recording in that scenario's summary. The question did not ask for a summary or paths; treat this as a coverage/design limitation, not evidence against either name."
+    },
+    {
+      "kind": "additional_protocol_risk",
+      "response": "b1",
+      "description": "Obtaining the current owner's claim token was suggested. Literal coordination is present, but the answer does not establish ownership transfer. Clarify that the current owner should act, or release so another worker can claim with a new token."
+    },
+    {
+      "kind": "execution_detail",
+      "response": "b2",
+      "description": "The typo correction command used --revision REVISION instead of the supplied revision 4. The rubric required a revision flag, so this did not change the binary score."
+    }
+  ],
+  "conclusion": "No observed name-specific operational misunderstanding. The 49/60 vs 47/60 coverage difference does not establish a superiority claim. Choosing evolve remains a design judgement; clarify ownership, identity and handoff rules and retest the edited text.",
+  "limitations": [
+    "Three samples per name from the same model configuration, not six different model families.",
+    "Ten answers within one response are correlated; do not treat criteria or scenarios as independent subjects.",
+    "Scenarios explicitly cue replacement semantics and readers receive the full README; this is not a test of unaided inference from a bare verb.",
+    "The variant changes command, state and prose together, so it cannot isolate the effect of the verb alone.",
+    "No CLI commands were executed by these readers.",
+    "Fresh parent turns were excluded and all isolation-marker answers were null; filesystem and host-instruction isolation were not independently proven."
+  ]
+}

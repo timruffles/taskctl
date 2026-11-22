@@ -1,0 +1,42 @@
+{
+  "remaining": [
+    "chooses replacement operation with current claim and revision",
+    "valid JSON summary/replacements with self-contained remaining tasks and continue_with key"
+  ],
+  "correction": [
+    "chooses edit with claim and revision",
+    "keeps same task ID"
+  ],
+  "checkpoint": [
+    "chooses progress title/body-file",
+    "does not retire original"
+  ],
+  "identity": [
+    "original no longer current/mutable",
+    "new returned task ID and fresh claim with continue_with; no reuse of old token"
+  ],
+  "outcome": [
+    "dependent waits and supervisor unresolved until all branches complete",
+    "original remains historical replaced state; does not become completed"
+  ],
+  "discovered": [
+    "newly discovered necessary work may be represented by successors",
+    "does not discard implementation; record completed work and relevant paths in summary"
+  ],
+  "stale_owner": [
+    "stale token cannot mutate or evolve; authorship grants no override",
+    "read current state and coordinate rather than steal current claim"
+  ],
+  "handoff": [
+    "omit continue_with; all pending; inherit tags/metadata/prereqs/scratch",
+    "old notes stay on predecessor; new briefs carry necessary context and acceptance"
+  ],
+  "navigation": [
+    "in-progress and available",
+    "history or parent_id/origin_id; note body only explicit read"
+  ],
+  "finished": [
+    "complete with current claim",
+    "record actual result and verification; no empty replacement plan"
+  ]
+}

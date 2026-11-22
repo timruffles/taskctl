@@ -1,0 +1,100 @@
+{
+  "paraphrase": "taskctl is a local task CLI for a small group of coding agents. It stores task data separately from long Markdown note bodies and lets agents claim work, record progress, replace stale task definitions with remaining work, and track dependencies and outcomes. To replace a task whose brief mostly describes completed work, read its current revision and submit a JSON plan containing a summary, replacement tasks, and optionally `continue_with`; replacement tasks become current while the original remains in history.",
+  "answers": [
+    {
+      "id": "remaining",
+      "command": "taskctl tasks supersede T7 --claim C7 --revision 12 --file remaining.json",
+      "plan": {
+        "summary": "CSV parsing and the CLI are implemented and verified. Malformed-row errors and integration tests remain.",
+        "replacements": [
+          {
+            "key": "errors",
+            "title": "Report malformed CSV rows",
+            "brief": "Add malformed-row error handling to the CSV parser. Test malformed rows and run the parser tests."
+          },
+          {
+            "key": "integration",
+            "title": "Add CSV import integration tests",
+            "brief": "Add integration tests for CSV import, including malformed rows. Run the integration tests."
+          }
+        ],
+        "continue_with": "errors"
+      },
+      "explanation": "The plan describes the work that remains. `continue_with` claims the ready replacement for the same worker; the command returns a new claim token."
+    },
+    {
+      "id": "correction",
+      "command": "taskctl tasks edit T8 --revision 4 --brief-file FILE --claim C8",
+      "explanation": "Use `tasks edit` for a small correction when the work itself is unchanged. The README describes this as an edit to the task brief, not as creating a replacement task ID."
+    },
+    {
+      "id": "checkpoint",
+      "command": "taskctl tasks progress T9 --claim C9 --title 'Investigation confirmed the existing plan.' --body-file evidence.md",
+      "explanation": "This records a checkpoint title and optional Markdown evidence. Progress does not retire T9."
+    },
+    {
+      "id": "identity",
+      "explanation": "After superseding, use the replacement task ID and the new claim token returned by `continue_with`. The original task remains discoverable as superseded; its old claim is not the token to use for continuing work. `continue_with` claims the specified ready replacement for the same worker and returns a new token."
+    },
+    {
+      "id": "outcome",
+      "explanation": "The dependent task remains waiting because a prerequisite on T10 follows its replacements, and the original succeeds only when every replacement branch completes. A supervisor waiting on T10 is not finished waiting while one replacement remains in progress. Once both replacements complete, T10's stored state remains `superseded`."
+    },
+    {
+      "id": "discovered",
+      "explanation": "Yes. The replacement plan should describe the actual remaining work, including newly discovered input normalisation and final verification. Superseding replaces the task definition with work that remains; it does not imply discarding already implemented code."
+    },
+    {
+      "id": "stale_owner",
+      "explanation": "No. Superseding the task requires the current claim and revision; the README says takeover makes old tokens unable to change the task. Original authorship does not grant authority. First inspect current state with `tasks in-progress` and `tasks show ID`, then use the current ownership and revision information."
+    },
+    {
+      "id": "handoff",
+      "command": "taskctl tasks supersede TASK_ID --claim CLAIM_TOKEN --revision REVISION --file remaining.json",
+      "plan": {
+        "summary": "State what has been completed and what remains.",
+        "replacements": [
+          {
+            "key": "first",
+            "title": "First remaining task",
+            "brief": "Describe the remaining work, where to work, and evidence that establishes completion."
+          },
+          {
+            "key": "second",
+            "title": "Second remaining task",
+            "brief": "Describe the remaining work, where to work, and evidence that establishes completion."
+          }
+        ]
+      },
+      "explanation": "Omit `continue_with` to leave replacements pending for other agents. Tags, metadata, prerequisites, and scratch references carry forward; the old task and its notes remain with the original task. Each new brief must stand on its own."
+    },
+    {
+      "id": "navigation",
+      "commands": [
+        "taskctl tasks in-progress",
+        "taskctl tasks available",
+        "taskctl tasks show TASK_ID"
+      ],
+      "explanation": "`tasks in-progress` shows currently claimed work, its owner, and last activity; `tasks available` shows work that can be claimed. The `ORIGIN` column points to the top-level original, and `show` names the immediate predecessor. `tasks history TASK_ID` shows original and replacement definitions. `tasks show` and note-list commands expose titles and references without loading full note bodies."
+    },
+    {
+      "id": "finished",
+      "command": "taskctl tasks complete T12 --claim CLAIM_TOKEN --summary 'Describe the actual result and verification.'",
+      "explanation": "When the work is finished, complete the task and record the actual result and verification. The README does not specify using an empty replacement list."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "Nit",
+      "scope": "Replace a task when a substantial chunk is finished",
+      "description": "The example replacement plan specifies `key`, `title`, and `brief`, but does not define whether `key` must be unique or how keys are used. The excerpt does not explain those fields beyond the example."
+    },
+    {
+      "severity": "Nit",
+      "scope": "Replace a task when a substantial chunk is finished",
+      "description": "The README says the current revision should be read before superseding but does not explain how the revision changes or what to do if it becomes stale between reading and submitting the plan."
+    }
+  ],
+  "prior_preference": null,
+  "isolation_marker": null
+}

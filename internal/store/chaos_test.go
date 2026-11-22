@@ -49,7 +49,7 @@ func (m chaosModel) outcome(id string) string {
 	if n.status == "cancelled" || n.status == "completed" {
 		return n.status
 	}
-	if n.status != "superseded" {
+	if n.status != "evolved" {
 		return "pending"
 	}
 	pending := len(n.children) == 0
@@ -171,7 +171,7 @@ func chaosCheckModel(t *testing.T, s *Store, m chaosModel, frozen map[string]Tas
 			if !reflect.DeepEqual(previous, a) {
 				t.Fatalf("seed=%d step=%d changed immutable %s", seed, step, id)
 			}
-		} else if n.status == "completed" || n.status == "cancelled" || n.status == "superseded" {
+		} else if n.status == "completed" || n.status == "cancelled" || n.status == "evolved" {
 			frozen[id] = a
 		}
 		outcome, err := s.Outcome(id)
@@ -363,17 +363,17 @@ func TestChaosSeededTaskStateMachine(t *testing.T) {
 					}
 					expected = editable
 					summary := fmt.Sprintf("Completed chunk %d", step)
-					spec := SupersedeSpec{Summary: summary, Replacements: []CreateSpec{{Key: "first", Title: "Remaining first", Brief: "Independent remaining first work"}, {Key: "second", Title: "Remaining second", Brief: "Independent remaining second work", Prerequisites: []string{"@first"}}}}
+					spec := EvolveSpec{Summary: summary, Replacements: []CreateSpec{{Key: "first", Title: "Remaining first", Brief: "Independent remaining first work"}, {Key: "second", Title: "Remaining second", Brief: "Independent remaining second work", Prerequisites: []string{"@first"}}}}
 					if owned && rng.Intn(2) == 0 {
 						spec.ContinueWith = "first"
 						expected = expected && m.prerequisitesComplete(id)
 					}
 					var children []Task
-					children, err = s.Supersede(id, n.claim, n.revision, spec)
+					children, err = s.Evolve(id, n.claim, n.revision, spec)
 					if err == nil {
 						oldOwner := n.owner
 						remember()
-						n.status = "superseded"
+						n.status = "evolved"
 						n.owner = ""
 						n.claim = ""
 						n.result = summary
@@ -638,10 +638,10 @@ func TestChaosEventFailuresRollbackWholeMutation(t *testing.T) {
 	}
 	for _, kind := range []string{"superseded", "created", "claimed", "available"} {
 		kind := kind
-		cases["supersede-"+kind] = fault{kind: kind, setup: func(t *testing.T, s *Store) func() error {
+		cases["evolve-"+kind] = fault{kind: kind, setup: func(t *testing.T, s *Store) func() error {
 			task := owned(t, s)
-			spec := SupersedeSpec{Summary: "Partial result preserved", ContinueWith: "first", Replacements: []CreateSpec{{Key: "first", Title: "First", Brief: "Remaining first"}, {Key: "second", Title: "Second", Brief: "Remaining second"}}}
-			return func() error { _, err := s.Supersede(task.ID, task.ClaimID, task.Revision, spec); return err }
+			spec := EvolveSpec{Summary: "Partial result preserved", ContinueWith: "first", Replacements: []CreateSpec{{Key: "first", Title: "First", Brief: "Remaining first"}, {Key: "second", Title: "Second", Brief: "Remaining second"}}}
+			return func() error { _, err := s.Evolve(task.ID, task.ClaimID, task.Revision, spec); return err }
 		}}
 	}
 	for name, test := range cases {
@@ -681,8 +681,8 @@ func TestChaosEventFailuresRollbackWholeMutation(t *testing.T) {
 	}
 }
 
-func chaosSupersedePlan() SupersedeSpec {
-	spec := SupersedeSpec{Summary: "A large completed chunk and eight remaining branches", ContinueWith: "branch-0"}
+func chaosEvolvePlan() EvolveSpec {
+	spec := EvolveSpec{Summary: "A large completed chunk and eight remaining branches", ContinueWith: "branch-0"}
 	for i := 0; i < 8; i++ {
 		spec.Replacements = append(spec.Replacements, CreateSpec{Key: fmt.Sprintf("branch-%d", i), Title: fmt.Sprintf("Remaining branch %d", i), Brief: strings.Repeat("Large self-contained remaining context. ", 1024), Tags: []string{"survives-crash"}})
 	}
@@ -742,7 +742,7 @@ func TestChaosSubprocess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.Supersede(task.ID, task.ClaimID, task.Revision, chaosSupersedePlan()); err != nil {
+	if _, err = s.Evolve(task.ID, task.ClaimID, task.Revision, chaosEvolvePlan()); err != nil {
 		t.Fatal(err)
 	}
 	if mode == "kill-after-commit" {
@@ -861,17 +861,17 @@ func TestChaosKilledWriterRecovery(t *testing.T) {
 					}
 				case "kill-after-commit":
 					task, err := reopened.Get(original.ID)
-					if err != nil || task.Status != "superseded" {
-						t.Fatalf("lost committed supersession: %+v %v", task, err)
+					if err != nil || task.Status != "evolved" {
+						t.Fatalf("lost committed evolution: %+v %v", task, err)
 					}
-					if _, err = reopened.Supersede(original.ID, original.ClaimID, original.Revision, chaosSupersedePlan()); ErrorCode(err) != "conflict" {
-						t.Fatalf("lost-response retry duplicated supersession: %v", err)
+					if _, err = reopened.Evolve(original.ID, original.ClaimID, original.Revision, chaosEvolvePlan()); ErrorCode(err) != "conflict" {
+						t.Fatalf("lost-response retry duplicated evolution: %v", err)
 					}
 					all := chaosAll(t, reopened)
 					if len(all) != 10 {
 						t.Fatalf("committed branch count=%d want10", len(all))
 					}
-					plan := chaosSupersedePlan()
+					plan := chaosEvolvePlan()
 					wantEvents := map[string]int{original.ID + ":superseded": 1}
 					for i, spec := range plan.Replacements {
 						id := taskID(int64(i + 3))
@@ -1130,7 +1130,7 @@ func TestChaosContentionAcrossOwnersAndDefinitions(t *testing.T) {
 			go func(s *Store) {
 				defer wg.Done()
 				<-start
-				_, err := s.Supersede(current.ID, current.ClaimID, current.Revision, SupersedeSpec{Summary: "One supersession wins", Replacements: []CreateSpec{{Title: "First remaining", Brief: "First independent remainder"}, {Title: "Second remaining", Brief: "Second independent remainder"}}})
+				_, err := s.Evolve(current.ID, current.ClaimID, current.Revision, EvolveSpec{Summary: "One evolution wins", Replacements: []CreateSpec{{Title: "First remaining", Brief: "First independent remainder"}, {Title: "Second remaining", Brief: "Second independent remainder"}}})
 				if err == nil {
 					success <- true
 				} else {
@@ -1143,7 +1143,7 @@ func TestChaosContentionAcrossOwnersAndDefinitions(t *testing.T) {
 		close(success)
 		close(failures)
 		if len(success) != 1 {
-			t.Fatalf("round=%d supersession winners=%d", round, len(success))
+			t.Fatalf("round=%d evolution winners=%d", round, len(success))
 		}
 		for err := range failures {
 			if ErrorCode(err) != "conflict" && ErrorCode(err) != "busy" {

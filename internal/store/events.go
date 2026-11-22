@@ -188,6 +188,7 @@ func readSelectedEvents(q Queryer, id, after int64, limit int, summary bool, sel
 			return page, err
 		}
 		event.TaskID = taskID(task)
+		event.Kind = publicEvolutionName(event.Kind)
 		event.Data = json.RawMessage(data)
 		page.Events = append(page.Events, event)
 		page.Cursor = event.ID

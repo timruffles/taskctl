@@ -185,7 +185,7 @@ func TestChaosSeededNotificationRecovery(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				children, err := s.Supersede(current.ID, current.ClaimID, current.Revision, SupersedeSpec{Summary: "completed portion retained; two branches remain", Replacements: []CreateSpec{{Key: "continue", Title: "continued branch", Brief: "Finish the current branch"}, {Key: "parallel", Title: "parallel branch", Brief: "Finish the independent branch"}}, ContinueWith: "continue"})
+				children, err := s.Evolve(current.ID, current.ClaimID, current.Revision, EvolveSpec{Summary: "completed portion retained; two branches remain", Replacements: []CreateSpec{{Key: "continue", Title: "continued branch", Brief: "Finish the current branch"}, {Key: "parallel", Title: "parallel branch", Brief: "Finish the independent branch"}}, ContinueWith: "continue"})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -197,7 +197,7 @@ func TestChaosSeededNotificationRecovery(t *testing.T) {
 				for _, child := range children {
 					scope[child.ID] = true
 				}
-				counts["supersede"]++
+				counts["evolve"]++
 			}
 			for step := 0; step < 256; step++ {
 				now = now.Add(time.Millisecond)

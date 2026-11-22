@@ -75,7 +75,7 @@ func mustTaskNumber(t *testing.T, id string) int64 {
 	return n
 }
 
-func TestCoreAvailabilityTreatsEmptySupersededAsPending(t *testing.T) {
+func TestCoreAvailabilityTreatsEmptyEvolvedAsPending(t *testing.T) {
 	s := newTaskTestStore(t)
 	original := mustCreateTask(t, s, CreateSpec{Title: "Empty historical definition"})
 	if _, err := s.DB.Exec("UPDATE tasks SET status='superseded' WHERE id=?", mustTaskNumber(t, original.ID)); err != nil {

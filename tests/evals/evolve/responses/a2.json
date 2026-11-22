@@ -1,0 +1,68 @@
+{
+  "paraphrase": "What this proposes: The document describes a local task CLI for coordinating coding agents. Agents claim tasks, record progress, replace stale task definitions with descriptions of remaining work, and use task and notification commands to track outcomes. Task data and long note bodies are stored separately, outside the repository; agents in separate worktrees can share a project.\n\nHow the existing system works, per this document: A task can be pending, in progress, or in a terminal state such as completed, cancelled, or superseded. Prerequisites control when tasks become available, and replacing a task creates successor tasks while retaining the original in history. Claims control who can update in-progress work; replacement can continue work with a new claim token or leave successors pending. Watchers, waits, subscriptions, and hooks provide ways to follow changes, while notes keep progress titles separate from longer Markdown bodies.",
+  "answers": [
+    {
+      "id": "remaining",
+      "command": "taskctl tasks supersede T7 --claim C7 --revision 12 --file remaining.json",
+      "plan": {
+        "summary": "CSV parsing and the import CLI are implemented and verified. Malformed-row errors and integration tests remain.",
+        "replacements": [
+          {
+            "key": "errors",
+            "title": "Report malformed CSV row errors",
+            "brief": "Add useful errors for malformed CSV rows. Preserve the completed parsing and CLI work. Add or update parser tests for malformed rows."
+          },
+          {
+            "key": "integration",
+            "title": "Add CSV import integration tests",
+            "brief": "Add integration tests for the CSV import command, including valid input and malformed rows. Run the integration tests and record the result."
+          }
+        ],
+        "continue_with": "errors"
+      },
+      "explanation": "Save this plan as remaining.json. Supersede T7 with its current claim and revision to preserve the original in history. continue_with claims the ready replacement for the same worker and returns a new claim token; use that replacement's task ID and token for subsequent work."
+    },
+    {
+      "id": "correction",
+      "command": "taskctl tasks edit T8 --revision 4 --brief-file FILE --claim C8",
+      "explanation": "Use edit for a small correction when the work and acceptance criteria remain unchanged. This edits the existing task; it does not create a new task ID."
+    },
+    {
+      "id": "checkpoint",
+      "command": "taskctl tasks progress T9 --claim C9 --title 'Investigation confirmed the existing plan.' --body-file evidence.md",
+      "explanation": "This records a progress note with a short title and longer Markdown evidence. It does not retire T9."
+    },
+    {
+      "id": "identity",
+      "explanation": "No. After supersession, T1 remains discoverable as superseded, and the replacement becomes the current task. continue_with claims the ready replacement for the same worker and returns a new claim token. Use the returned replacement task ID and token from then on. The README says old tokens can no longer change a task after takeover; it does not specifically describe the old token's effect after supersession."
+    },
+    {
+      "id": "outcome",
+      "explanation": "The dependent task continues waiting because an original succeeds only when every replacement branch completes. A supervisor using watch or wait follows replacements, so it is not finished waiting while one replacement remains in progress. When both replacements complete, T10's stored state remains superseded."
+    },
+    {
+      "id": "discovered",
+      "explanation": "Yes. Supersede the stale definition with successor briefs describing the actual remaining work, including the newly discovered input-normalisation step and final verification. Supersession replaces the task definition; the README does not say it discards already implemented code. Carry essential facts into the handoff and successor briefs."
+    },
+    {
+      "id": "stale_owner",
+      "explanation": "No. After takeover, old tokens can no longer change the task. Being the original author does not grant authority; the README says to use the current claim for owned-task operations. First read the current state with tasks show, and coordinate with the current owner to obtain an authorized claim before attempting to replace the task. The README does not specify another way to regain ownership."
+    },
+    {
+      "id": "handoff",
+      "explanation": "Omit continue_with from the supersede plan to leave replacements pending for other agents. Tags, metadata, prerequisites, and scratch references carry forward; notes remain with the original task, so carry essential facts into the handoff and successor briefs. Each new brief must stand on its own."
+    },
+    {
+      "id": "navigation",
+      "explanation": "Use taskctl tasks in-progress to see currently claimed work and taskctl tasks available to see work agents can claim. The ORIGIN column points to the top-level original, and tasks show names the immediate predecessor. Use tasks history T1 to inspect original and replacement definitions. Recent progress-note titles are available with notes list; full note bodies require notes read, so the task and history views let a supervisor trace definitions without loading all old note bodies."
+    },
+    {
+      "id": "finished",
+      "command": "taskctl tasks complete T12 --claim CLAIM_TOKEN --summary 'Describe the actual result and verification.'",
+      "explanation": "Complete the task after its acceptance conditions are satisfied and verified, recording the actual result and verification in the summary. Supersede is for replacing a stale definition with remaining work."
+    }
+  ],
+  "findings": [],
+  "prior_preference": null,
+  "isolation_marker": null
+}

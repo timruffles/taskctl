@@ -298,7 +298,7 @@ func (a *app) tasks() error {
 			return e
 		}
 		return a.taskResult(t)
-	case "supersede":
+	case "evolve", "supersede":
 		if err = a.o.allow("claim", "revision", "file"); err != nil {
 			return err
 		}
@@ -306,18 +306,18 @@ func (a *app) tasks() error {
 		if e != nil {
 			return e
 		}
-		var spec store.SupersedeSpec
+		var spec store.EvolveSpec
 		if e = a.readJSONFile(&spec); e != nil {
 			return e
 		}
-		tasks, e := a.s.Supersede(id, claim, rev, spec)
+		tasks, e := a.s.Evolve(id, claim, rev, spec)
 		if e != nil {
 			return e
 		}
 		if a.o.yes("json") {
 			return a.json(tasks)
 		}
-		fmt.Fprintln(a.out, id, "superseded")
+		fmt.Fprintln(a.out, id, "evolved")
 		for _, t := range tasks {
 			if e = a.taskResult(t); e != nil {
 				return e

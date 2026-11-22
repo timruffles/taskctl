@@ -1,5 +1,7 @@
 # V1 implementation contract
 
+This is the original implementation brief. For the current CLI, storage and terminology, use [README](README.md), [design](docs/DESIGN.md) and [decisions](docs/adr/).
+
 Working name: taskctl. Standard library CLI, modernc.org/sqlite v1.62.0, Go 1.26+. Toolchain installed for this workspace at /tmp/taskctl-go-1.27.4/go/bin/go (the system `go` is not the Go compiler).
 
 One project database outside repos in XDG_DATA_HOME/taskctl/projects/ID/tasks.sqlite. XDG_STATE_HOME/taskctl/scratch/ID holds managed scratch. Nearest `.taskctl.json` selects a stable project ID; `--project ID` is explicit. No runtime Git dependency.

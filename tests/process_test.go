@@ -90,7 +90,7 @@ func TestConcurrentBriefEditsRejectLostUpdate(t *testing.T) {
 	}
 }
 
-func TestSupersessionPreservesFrontierLineageAndPrerequisites(t *testing.T) {
+func TestEvolutionPreservesFrontierLineageAndPrerequisites(t *testing.T) {
 	f := newFixture(t)
 	original := f.create("deliver the whole feature", "--tag", "feature")
 	dependent := f.create("integrate the delivered feature", "--prerequisite", original.ID)
@@ -103,9 +103,9 @@ func TestSupersessionPreservesFrontierLineageAndPrerequisites(t *testing.T) {
 		},
 	}
 	path := writeSpec(t, f.root, "replacement.json", spec)
-	f.must("tasks", "supersede", original.ID, "--claim", claimed.ClaimID, "--revision", fmt.Sprint(claimed.Revision), "--file", path, "--json")
-	if current := f.get(original.ID); current.Status != "superseded" || current.Brief != original.Brief {
-		t.Fatalf("supersession did not preserve the predecessor: %+v", current)
+	f.must("tasks", "evolve", original.ID, "--claim", claimed.ClaimID, "--revision", fmt.Sprint(claimed.Revision), "--file", path, "--json")
+	if current := f.get(original.ID); current.Status != "evolved" || current.Brief != original.Brief {
+		t.Fatalf("evolution did not preserve the predecessor: %+v", current)
 	}
 	available := f.list("available")
 	if len(available.Tasks) != 1 || available.Tasks[0].Title != "implement the feature" {
@@ -116,7 +116,7 @@ func TestSupersessionPreservesFrontierLineageAndPrerequisites(t *testing.T) {
 		t.Fatalf("successor lost its lineage: %+v", implementation)
 	}
 	if !containsTask(f.list("blocked").Tasks, dependent.ID) {
-		t.Fatal("original dependent was unblocked by supersession alone")
+		t.Fatal("original dependent was unblocked by evolution alone")
 	}
 	f.complete(f.claim(implementation.ID, "implementer"))
 	available = f.list("available")
@@ -136,12 +136,12 @@ func TestSupersessionPreservesFrontierLineageAndPrerequisites(t *testing.T) {
 	if !containsTask(f.list("available").Tasks, dependent.ID) {
 		t.Fatal("dependent did not become available after every successor completed")
 	}
-	if f.get(original.ID).Status != "superseded" {
+	if f.get(original.ID).Status != "evolved" {
 		t.Fatal("following the outcome rewrote the immutable predecessor state")
 	}
 }
 
-func TestCyclicSupersessionRollsBackAllReplacements(t *testing.T) {
+func TestCyclicEvolutionRollsBackAllReplacements(t *testing.T) {
 	f := newFixture(t)
 	original := f.create("original objective")
 	dependent := f.create("downstream objective", "--prerequisite", original.ID)
@@ -155,20 +155,20 @@ func TestCyclicSupersessionRollsBackAllReplacements(t *testing.T) {
 		},
 	}
 	path := writeSpec(t, f.root, "cyclic.json", spec)
-	result := f.run("", "tasks", "supersede", original.ID, "--claim", claimed.ClaimID, "--revision", fmt.Sprint(claimed.Revision), "--file", path, "--json")
+	result := f.run("", "tasks", "evolve", original.ID, "--claim", claimed.ClaimID, "--revision", fmt.Sprint(claimed.Revision), "--file", path, "--json")
 	if result.code == 0 {
 		t.Fatal("effective dependency cycle was accepted")
 	}
 	after := f.get(original.ID)
 	if after.Status != claimed.Status || after.ClaimID != claimed.ClaimID || after.Revision != claimed.Revision {
-		t.Fatalf("failed supersession changed the predecessor: before=%+v after=%+v", claimed, after)
+		t.Fatalf("failed evolution changed the predecessor: before=%+v after=%+v", claimed, after)
 	}
 	if total := f.list("list").Total; total != before {
-		t.Fatalf("failed supersession leaked replacements: before=%d after=%d", before, total)
+		t.Fatalf("failed evolution leaked replacements: before=%d after=%d", before, total)
 	}
 	f.complete(claimed)
 	if !containsTask(f.list("available").Tasks, dependent.ID) {
-		t.Fatal("failed supersession left hidden dependency or lineage changes")
+		t.Fatal("failed evolution left hidden dependency or lineage changes")
 	}
 }
 

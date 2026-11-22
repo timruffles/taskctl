@@ -12,7 +12,7 @@ Load only the reference for the current operation.
 | Project setup, worktrees, task creation, delegation | [Coordination](references/coordination.md) |
 | Remaining work, owners, readiness, history | [Inspection](references/inspection.md) |
 | Claiming, progress, scratch, completion, release | [Working](references/working.md) |
-| Substantial partial completion or changed scope | [Supersession](references/supersession.md) |
+| Substantial partial completion or changed scope | [Evolution](references/evolution.md) |
 | Subscriptions, pending updates, acknowledgements | [Notifications](references/notifications.md) |
 | Codex hooks or idle resumption | [Hooks](references/hooks.md) |
 | Conflicts, lost responses, inactivity, crashes, backups | [Recovery](references/recovery.md) |

@@ -1,0 +1,95 @@
+{
+  "paraphrase": "The README describes taskctl as a local CLI that coordinates task ownership, progress notes, prerequisites, and notifications for coding agents, with project data shared across worktrees. When a task brief becomes mostly completed work, `tasks evolve` records the remaining work as replacement tasks while keeping the original discoverable in history. The README also covers installation, agent workflows, recovery, notifications, scratch storage, backups, and development references.",
+  "answers": [
+    {
+      "id": "remaining",
+      "command": "taskctl tasks evolve T7 --claim C7 --revision 12 --file remaining.json",
+      "plan": {
+        "summary": "CSV parsing and the CLI are implemented and verified; malformed-row errors and integration tests remain.",
+        "replacements": [
+          {
+            "key": "errors",
+            "title": "Report malformed CSV rows",
+            "brief": "Add malformed-row errors to the CSV parser. Preserve the verified parsing and CLI behaviour. Add parser tests for malformed rows."
+          },
+          {
+            "key": "integration",
+            "title": "Verify CSV import end to end",
+            "brief": "Add integration tests for CSV import, including malformed rows. Run the relevant tests and record the verification."
+          }
+        ],
+        "continue_with": "errors"
+      },
+      "explanation": "Save the plan as JSON and pass it with `--file`. The `errors` replacement is claimed for the same worker by `continue_with`; the command returns its task ID and a new claim token."
+    },
+    {
+      "id": "correction",
+      "command": "taskctl tasks edit T8 --revision 4 --brief-file FILE --claim C8",
+      "explanation": "Use `tasks edit` for a small correction when the work and acceptance criteria are unchanged. The README describes this as editing the task brief; it does not say this creates a new task ID."
+    },
+    {
+      "id": "checkpoint",
+      "command": "taskctl tasks progress T9 --claim C9 --title 'Investigation confirmed the existing plan.' --body-file evidence.md",
+      "explanation": "Use `tasks progress` to record a checkpoint, with the short title and longer evidence in the body file. Progress records a note; it does not retire T9."
+    },
+    {
+      "id": "identity",
+      "explanation": "After evolution, the original task remains discoverable as `evolved`; the replacement becomes the current task. If `continue_with` claims a ready replacement for the same worker, use the returned replacement task ID and new claim token for subsequent work. The README does not specify whether the original claim can still modify the original task after evolution."
+    },
+    {
+      "id": "outcome",
+      "explanation": "The dependent task remains waiting while any replacement branch is unfinished, and a supervisor waiting on T10 continues to wait until the overall outcome is known. Once every replacement branch completes, T10 succeeds while its stored state remains `evolved`."
+    },
+    {
+      "id": "discovered",
+      "explanation": "Yes. The operation is appropriate when the old brief describes mostly completed work and the actual remaining work includes something newly discovered. The plan should describe the necessary input-normalisation step and final verification. The README says evolution replaces the task definition with work that remains and preserves the original in history; it does not imply discarding already implemented code."
+    },
+    {
+      "id": "stale_owner",
+      "explanation": "The README says the current claim is needed to evolve a task. Retaining an old ID, claim, and revision after takeover does not establish current ownership; authorship is not described as granting authority. Inspect current state first with `tasks in-progress` and `tasks show ID`; the README describes takeover for crashed workers, but does not specify a general procedure for a worker that has lost ownership."
+    },
+    {
+      "id": "handoff",
+      "command": "taskctl tasks evolve TASK_ID --claim CLAIM_TOKEN --revision REVISION --file remaining.json",
+      "plan": {
+        "summary": "The original task is mostly complete; two independent tasks remain.",
+        "replacements": [
+          {
+            "key": "first",
+            "title": "Complete remaining task one",
+            "brief": "Describe the remaining work, where to work, and what evidence will establish completion."
+          },
+          {
+            "key": "second",
+            "title": "Complete remaining task two",
+            "brief": "Describe the remaining work, where to work, and what evidence will establish completion."
+          }
+        ]
+      },
+      "explanation": "Omit `continue_with` to leave replacements pending for other agents. Tags, metadata, prerequisites, and scratch references carry forward. Old notes stay with the original task, so essential facts should be carried into the handoff and successor briefs. Each new brief must stand on its own."
+    },
+    {
+      "id": "navigation",
+      "explanation": "Use `taskctl tasks in-progress` to see claimed work and `taskctl tasks available` to see work agents can claim. The `ORIGIN` column points to the top-level original, and `show` names the immediate predecessor. `taskctl tasks history ID` shows original and replacement definitions; note bodies are separate and need not be loaded to trace task definitions."
+    },
+    {
+      "id": "finished",
+      "command": "taskctl tasks complete T12 --claim CLAIM_TOKEN --summary 'Summarise the actual result and verification performed.'",
+      "explanation": "The README says to complete finished work by recording the actual result and verification. It describes evolution for work that remains, so replacing a fully completed task with an empty replacement list is not specified as the correct operation."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "Nit",
+      "scope": "Recover interrupted work deliberately",
+      "description": "The README explains takeover for a crashed worker, but does not say what a worker should do after discovering that another worker has already taken over. The stale-owner scenario therefore cannot be answered with a complete recovery procedure from the README alone."
+    },
+    {
+      "severity": "Nit",
+      "scope": "tasks evolve and task claims",
+      "description": "The README says evolution replaces the current task and that `continue_with` returns a new claim token, but does not explicitly state whether the old claim token can still modify the original task after evolution. The identity scenario asks this directly, so the answer is not fully established."
+    }
+  ],
+  "prior_preference": null,
+  "isolation_marker": null
+}
