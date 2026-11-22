@@ -1,8 +1,8 @@
-# taskctl: 0.2.0 design
+# taskctl: 0.3.0 design
 
-Date: 2026-11-21
+Date: 2026-11-22
 
-`taskctl` is a Go command-line tool for a single-digit number of coding agents working locally. This document records the current design, including the 0.1.1 recovery changes and 0.2.0 data-size and query improvements. See the README for exact command grammar, PERFORMANCE.md for scaling measurements, VALIDATION.md for the initial trial, and CHAOS_VALIDATION.md for the historical failure tests and hooked Luna recovery exercise.
+`taskctl` is a Go command-line tool for a single-digit number of coding agents working locally. This document records the current design, including recovery, bounded data access and the separate progress-note body store. See the README for exact command grammar, PERFORMANCE.md for scaling measurements, VALIDATION.md for the initial trial, and CHAOS_VALIDATION.md for the historical failure tests and hooked Luna recovery exercise.
 
 ## Accepted decisions
 
@@ -26,19 +26,30 @@ These tokens fence taskctl mutations. File isolation remains the execution harne
 
 A coarse last-activity signal suppresses inactivity reminders while activity is recent. Agents track their own progress. The tool does not need fine-grained productivity, progress or agent-health classifications. V1 uses a configurable 30-minute inactivity threshold and one event per silence period. Heartbeats do not produce events or change revisions. Inactivity never expires task ownership. Deliberate pauses can retain ownership or explicitly release it.
 
+### Progress notes
+
+A progress note has a required single-line title of at most 120 Unicode characters, an optional Markdown body, a task and event ID, its author and claim, and a timestamp. New titles over the limit are rejected. The current claim is checked before publication. Task views expose only the latest title and note reference. Note lists are paged, newest first, using an event-ID cursor; bodies are read explicitly.
+
+`tasks.sqlite` holds note metadata and the latest title. A separate `notes.sqlite` stores Markdown bodies in indexed 64 KiB chunks. The body byte length and SHA-256 support validation and bounded streaming without file-position indexes or scanning older notes. Body publication precedes its main-database reference; interrupted publication can leave unreferenced body data, rather than a successful task update that points to an unfinished body. Reads, deletion and complete backups coordinate with publication.
+
+Deletion clears the note's visible text and body, retaining a small deletion record. Deleting the latest note clears current progress rather than selecting an older title. Freed pages remain available for reuse; physical database compaction is not part of this release. Note bodies are durable and are not subject to scratch cleanup. Supersession does not copy note history into new tasks: essential facts belong in a deliberate handoff and self-contained successor briefs.
+
+Legacy `progress --text` and `--text-file` remain supported. Input that is already a valid title creates a title-only note; other text is preserved as a body with a derived title. Legacy file input is buffered with a 1 MiB cap; the new `--body-file` path streams. Upgrading a schema-version-1 store moves its historical progress text into the new format. Explicit note reads stream Markdown; `--json` is available for note metadata, not the body stream.
+
 ### Projects, storage and backups
 
-Each project has a stable ID and one SQLite database outside the repository, shared across its worktrees. Local configuration selects the project, with an explicit `--project` override. Markdown briefs live in the task store. Backups are SQLite files, which can be stored in Git or another backup system; normal operation does not require Git. JSON archives were removed in 0.2.0.
+Each project has a stable ID and a task database outside the repository, shared across its worktrees. Long note bodies live in a second database in the same project directory. Local configuration selects the project, with an explicit `--project` override. Markdown briefs live in the task store. A complete backup directory contains both SQLite snapshots and can be stored in Git or another backup system; normal operation does not require Git. JSON archives were removed in 0.2.0.
 
 Normal commands open existing validated storage and fail explicitly when it is missing or invalid. Opening an up-to-date store does not start a schema write transaction; missing additive objects are installed when required. Only explicit creation or restore initializes a database. Optional creation request IDs make retries after lost responses safe by committing the normalized input receipt, task and events together. Reusing a key with different input conflicts; a new restored project starts without the old operational receipts.
 
-Backup uses SQLite `VACUUM INTO`, syncs the staging file and publishes it atomically without replacing an existing destination. Restore creates a new project and holds one read-only source snapshot while validating and inserting rows into the application's own schema. The destination commits only after field, graph, lineage and reference validation. Old claims are released, subscriptions and request receipts are cleared, and scratch history remains marked unavailable. Source schema objects and scratch file contents are not imported.
+Single-file backup uses SQLite `VACUUM INTO`, syncs the staging file and publishes it atomically without replacing an existing destination. It rejects stores with live note bodies. Full directory backup coordinates body publication and deletion while taking snapshots of both databases; an incomplete backup is not a valid restore source. Restore creates a new project, validates source fields and references, and streams rows into the application's own schemas. Old claims are released, subscriptions and request receipts are cleared, and scratch history remains marked unavailable. Source schema objects and scratch file contents are not imported. Legacy SQLite-only backups remain accepted and their progress is migrated.
 
 Locations follow XDG:
 
 | Content | Location |
 | --- | --- |
 | Project database, history and subscriptions | `$XDG_DATA_HOME/taskctl/projects/<project-id>/` |
+| Markdown note bodies | `$XDG_DATA_HOME/taskctl/projects/<project-id>/notes.sqlite` |
 | User configuration | `$XDG_CONFIG_HOME/taskctl/config.json` |
 | Managed scratch | `$XDG_STATE_HOME/taskctl/scratch/<project-id>/` |
 
@@ -56,8 +67,10 @@ Tags are plain labels. Named metadata fields cover worktrees and agent/session i
 | --- | --- |
 | `tasks available` | ID, title, tags, original task ID |
 | `tasks in-progress` | The same, plus owner and last activity |
-| `tasks show ID` | Current brief, latest progress, prerequisites, metadata and a page of scratch references |
+| `tasks show ID` | Current brief, latest progress title and note ID, prerequisites, metadata and a page of scratch references |
 | `tasks history ID` | A page of definitions from the original lineage, including links, progress and results |
+| `notes list ID` | A page of note titles and metadata, with a `next_before` cursor |
+| `notes read NOTE_ID` | One explicitly requested Markdown body, streamed |
 
 Task lists default to 20 and cap at 200, with exact totals and continuation offsets. History, subscription and scratch lists use the same limits and return an explicit `more` flag and `next_offset`. `tasks show --json` supplies `scratch_more` and `scratch_next_offset` for its scratch page. Details and history are requested progressively rather than returned in every list. JSON envelope changes in 0.2.0 are intentional CLI changes.
 
@@ -73,7 +86,7 @@ Availability traverses only the prerequisites of the tasks being considered and 
 
 Normal dependency changes check reachability from the proposed edge. Restore's full-graph check uses indexed SQLite temporary tables and topological removal, without retaining a graph-sized Go map or recursive Go stack. Temporary storage uses files when it grows beyond SQLite's working cache.
 
-Row streaming and paged reads bound the number of records retained by Go. This is not a constant-memory guarantee: an individual requested task can have a large brief or metadata, full event delivery can include one oversized record, and SQLite needs working and temporary storage. Exact totals and broad replacement scopes still cost time proportional to the relevant data. No persistent derived-outcome cache is introduced.
+Row streaming and paged reads bound the number of records retained by Go. Note body input and output use bounded chunks, and ordinary task operations do not load them. This is not a constant-memory guarantee for all commands: an individual requested task can have a large brief or metadata, full event delivery can include one oversized non-progress record, and SQLite needs working and temporary storage. Exact totals and broad replacement scopes still cost time proportional to the relevant data. No persistent derived-outcome cache is introduced.
 
 ## Codex notification research
 
@@ -88,11 +101,11 @@ The locally inspected executable is `codex-cli 0.172.0-alpha.2`; this does not e
 
 ### Implemented adapter
 
-Keep subscriptions and pending events in our store. An asynchronous `PostToolUse` handler performs a short check for relevant pending updates, records coarse activity where ownership matches, and returns nothing when there are no updates. Otherwise it emits a compact summary with task IDs, event IDs and an explicit acknowledgement command. Details remain available through `tasks show` and `tasks history --json`. `SessionStart` restores a concise current snapshot.
+Keep subscriptions and pending events in our store. An asynchronous `PostToolUse` handler performs a short check for relevant pending updates and records coarse activity where ownership matches. Ordinary progress notes do not trigger context; other task changes produce a compact summary with task IDs, event IDs and an explicit acknowledgement command. Details remain available through `tasks show`, `tasks history --json` and explicit note reads. `SessionStart` restores a concise current snapshot.
 
 This is cheap local polling at hook boundaries, not a model repeatedly calling a waiting tool. It provides no guaranteed latency during a long uninterrupted model request or tool call. Do not launch a persistent watcher for every tool invocation.
 
-The adapter defaults to five events and a maximum of 3,000 context bytes. Adjacent progress events for the same task are coalesced in the summary; acknowledgement still covers their exact event range. Omitted events stay pending. Heartbeats generate no model-visible events. The hook refreshes the executing owner’s activity before detecting silence in other tasks, so hook-only subscribers can learn of inactivity without a separate watcher.
+The adapter defaults to five events and a maximum of 3,000 context bytes. Its delivery query skips progress events and includes at most the latest note title per affected task within the offered event range. Acknowledgement covers that range; later events remain pending. Progress-only hook checks neither acquire a delivery lease nor acknowledge history. Explicit event reads still include progress history. Heartbeats generate no model-visible events. The hook refreshes the executing owner’s activity before detecting silence in other tasks, so hook-only subscribers can learn of inactivity without a separate watcher.
 
 Hooks and Codex queue watchers fetch bounded text summaries and omit unused event data in SQL before constructing context. They compact large snapshots or progress text further with omitted detail disclosed, preserving event identities and ACK ranges. Full callback consumers retain complete event content. Subscription selection uses the session index and bounded results; quiet subscriptions do not each open a delivery write transaction. Initial queued snapshots also preserve events created since subscription. Cursors beyond the current database high-water mark fail rather than silently skipping future work.
 
@@ -108,8 +121,8 @@ An external subscription watcher can enqueue a compact wake for idle resumption 
 - Lists default to 20 and cap at 200. Tags use AND filters; replacement tasks inherit tags, metadata, prerequisites and scratch references.
 - Session and worktree references are string metadata; they never grant ownership or cause worktree deletion.
 - Task changes and their notifications share the same commit. Subscriptions, acknowledgement cursors, offered event ranges and delivery locks are database concepts. No transaction spans waiting, a callback or a Codex command.
-- SQLite is the only backup format. Backups use `VACUUM INTO`; restore reads rows from a consistent source snapshot into one destination transaction, with validation and operational-state reset.
-- Database schema version 1 remains compatible in 0.2.0. Additive indexes and operational tables are installed only when missing. Opening a future unknown schema fails; incompatible data changes require an explicit migration.
+- Backups use SQLite snapshots. Full directories contain both task metadata and note bodies; a single task-database snapshot is accepted only when no live bodies would be omitted. Restore validates source data and resets operational state.
+- Database schema version 2 introduces progress notes. Version-1 projects and backups migrate their progress text; older binaries reject the upgraded schema. Opening a future unknown schema fails.
 - Explicit waiting uses exit 0 for completed, 4 for cancelled and 5 for timeout. No default progress percentage, priority system, server, daemon requirement or Git synchronisation protocol is included.
 
-See ADR 0004 for durable notification delivery and the independent queue cursor, ADR 0005 for uncertain command outcomes and recovery boundaries, and ADR 0006 for SQLite-only backups and bounded data access.
+See ADR 0004 for durable notification delivery and the independent queue cursor, ADR 0005 for uncertain command outcomes and recovery boundaries, ADR 0006 for the earlier SQLite-only backup format and bounded data access, and ADR 0007 for separate Markdown note bodies.

@@ -49,9 +49,10 @@ func (q connectionQuery) QueryRow(query string, args ...any) *sql.Row {
 }
 
 type Store struct {
-	DB        *sql.DB
-	ProjectID string
-	Now       func() time.Time
+	DB           *sql.DB
+	ProjectID    string
+	Now          func() time.Time
+	databasePath string
 }
 
 func Open(path, projectID string) (*Store, error) {
@@ -84,7 +85,7 @@ func openStore(path, projectID string, create bool) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	s := &Store{DB: db, ProjectID: projectID, Now: time.Now}
+	s := &Store{DB: db, ProjectID: projectID, Now: time.Now, databasePath: path}
 	if !create {
 		if err = s.validateExisting(db); err != nil {
 			db.Close()
@@ -104,19 +105,27 @@ func openStore(path, projectID string, create bool) (*Store, error) {
 		return nil, classify(err)
 	}
 	if !current || create {
+		unlock, lockErr := s.noteLock(false)
+		if lockErr != nil {
+			db.Close()
+			return nil, lockErr
+		}
 		err = s.write(func(tx *sql.Tx) error {
 			if !create {
 				if err := s.validateExisting(tx); err != nil {
 					return err
 				}
 			}
-			if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS store_info(key TEXT PRIMARY KEY,value TEXT NOT NULL);` + taskSchema + notificationSchema + scratchSchema); err != nil {
+			if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS store_info(key TEXT PRIMARY KEY,value TEXT NOT NULL);` + taskSchema + notificationSchema + scratchSchema + noteSchema); err != nil {
+				return err
+			}
+			if err := ensureHookIndex(tx); err != nil {
 				return err
 			}
 			var existing string
 			err := tx.QueryRow("SELECT value FROM store_info WHERE key='project_id'").Scan(&existing)
 			if errors.Is(err, sql.ErrNoRows) {
-				_, err = tx.Exec("INSERT INTO store_info(key,value) VALUES('project_id',?),('schema_version','1')", projectID)
+				_, err = tx.Exec("INSERT INTO store_info(key,value) VALUES('project_id',?),('schema_version','2')", projectID)
 				return err
 			}
 			if err != nil {
@@ -129,11 +138,19 @@ func openStore(path, projectID string, create bool) (*Store, error) {
 			if err = tx.QueryRow("SELECT value FROM store_info WHERE key='schema_version'").Scan(&version); err != nil {
 				return err
 			}
-			if version != "1" {
-				return failure("unsupported_schema", "expected schema version 1, found "+version)
+			if version != "1" && version != "2" {
+				return failure("unsupported_schema", "expected schema version 1 or 2, found "+version)
+			}
+			if version == "1" {
+				if err := s.migrateNotesTx(tx); err != nil {
+					return err
+				}
+				_, err = tx.Exec("UPDATE store_info SET value='2' WHERE key='schema_version'")
+				return err
 			}
 			return nil
 		})
+		unlock()
 	}
 	if err != nil {
 		db.Close()
@@ -162,8 +179,8 @@ func (s *Store) validateExisting(q Queryer) error {
 	if project.String != s.ProjectID {
 		return failure("wrong_project", "database belongs to a different project")
 	}
-	if version.String != "1" {
-		return failure("unsupported_schema", "expected schema version 1, found "+version.String)
+	if version.String != "1" && version.String != "2" {
+		return failure("unsupported_schema", "expected schema version 1 or 2, found "+version.String)
 	}
 	for _, table := range archiveTables {
 		var present bool
@@ -174,19 +191,34 @@ func (s *Store) validateExisting(q Queryer) error {
 			return failure("storage_invalid", "project database is missing durable table "+table)
 		}
 	}
+	if version.String == "2" {
+		var present bool
+		if err := q.QueryRow("SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='notes')").Scan(&present); err != nil {
+			return classify(err)
+		}
+		if !present {
+			return failure("storage_invalid", "project database is missing durable table notes")
+		}
+	}
 	return nil
 }
 
 func schemaCurrent(q Queryer) (bool, error) {
 	var current bool
+	if err := q.QueryRow("SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='store_info')").Scan(&current); err != nil || !current {
+		return false, err
+	}
 	err := q.QueryRow(`WITH required(type,name) AS (VALUES
- ('table','create_requests'),('table','scratch_cleanup_state'),
+ ('table','create_requests'),('table','scratch_cleanup_state'),('table','notes'),
+ ('index','notes_task_order'),('index','notes_task_live_order'),('index','notes_with_bodies'),
+ ('index','events_hook_task_id'),
  ('index','tasks_status_id'),('index','tasks_owner'),('index','tasks_origin'),('index','tasks_parent'),
  ('index','tags_lookup'),('index','prerequisites_reverse'),('index','events_task_id'),
  ('index','subscriptions_session'),('index','subscriptions_session_order'),
  ('index','scratch_refs_area_task'),('index','scratch_unreferenced')
-) SELECT NOT EXISTS(SELECT 1 FROM required r WHERE NOT EXISTS(
- SELECT 1 FROM sqlite_schema s WHERE s.type=r.type AND s.name=r.name))`).Scan(&current)
+) SELECT (SELECT value='2' FROM store_info WHERE key='schema_version') AND NOT EXISTS(SELECT 1 FROM required r WHERE NOT EXISTS(
+ SELECT 1 FROM sqlite_schema s WHERE s.type=r.type AND s.name=r.name
+ AND (r.name<>'events_hook_task_id' OR s.sql=?)))`, hookIndexSQL).Scan(&current)
 	return current, err
 }
 func (s *Store) Close() error { return s.DB.Close() }

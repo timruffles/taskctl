@@ -39,7 +39,10 @@ func TestChaosHookLargeInitialSnapshotAndEventsRemainDeliverable(t *testing.T) {
 	}
 	for i := 0; i < 5; i++ {
 		child := children[i%len(children)]
-		if _, err = s.Progress(child.ID, child.ClaimID, strings.Repeat("\"", 400)); err != nil {
+		if _, err = s.AddNote(child.ID, child.ClaimID, strings.Repeat("\"", 120), strings.NewReader(strings.Repeat("\"", 400))); err != nil {
+			t.Fatal(err)
+		}
+		if err = s.MetadataSet(child.ID, child.ClaimID, "checkpoint", fmt.Sprint(i)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -89,7 +92,7 @@ func TestChaosHookMinimumBudgetShrinksPageWithoutSkippingEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 25; i++ {
-		if _, err = s.Progress(task.ID, task.ClaimID, strings.Repeat("long progress ", 50)); err != nil {
+		if err = s.MetadataSet(task.ID, task.ClaimID, fmt.Sprintf("checkpoint-%d", i), strings.Repeat("long metadata ", 50)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -116,7 +119,7 @@ func TestChaosHookMinimumBudgetShrinksPageWithoutSkippingEvents(t *testing.T) {
 			t.Fatal("bounded hook made no delivery progress")
 		}
 		for _, event := range expected.Events {
-			if event.ID > cursor && event.ID <= through && !strings.Contains(context, fmt.Sprintf("E%d %s progress", event.ID, event.TaskID)) {
+			if event.ID > cursor && event.ID <= through && !strings.Contains(context, fmt.Sprintf("E%d %s %s", event.ID, event.TaskID, event.Kind)) {
 				t.Fatalf("ACK range includes an event absent from compact summary: event=%d context=%s", event.ID, context)
 			}
 		}

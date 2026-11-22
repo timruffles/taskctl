@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -43,14 +44,15 @@ type Snapshot struct {
 }
 
 type Delivery struct {
-	Subscription Subscription `json:"subscription"`
-	Token        string       `json:"token,omitempty"`
-	Mode         string       `json:"mode,omitempty"`
-	Through      int64        `json:"through"`
-	Events       []Event      `json:"events"`
-	Snapshot     *Snapshot    `json:"snapshot,omitempty"`
-	More         bool         `json:"more"`
-	LeaseUntil   string       `json:"lease_until,omitempty"`
+	Subscription   Subscription `json:"subscription"`
+	Token          string       `json:"token,omitempty"`
+	Mode           string       `json:"mode,omitempty"`
+	Through        int64        `json:"through"`
+	Events         []Event      `json:"events"`
+	LatestProgress []Event      `json:"latest_progress,omitempty"`
+	Snapshot       *Snapshot    `json:"snapshot,omitempty"`
+	More           bool         `json:"more"`
+	LeaseUntil     string       `json:"lease_until,omitempty"`
 }
 
 type subscriptionRecord struct {
@@ -176,8 +178,8 @@ func (s *Store) HookSubscriptions(session string, includeQuiet bool, limit int) 
  WITH RECURSIVE scope(id) AS (
   SELECT subscriptions.task_id
   UNION SELECT t.id FROM tasks t JOIN scope s ON t.parent_id=s.id
- ) SELECT 1 FROM scope s CROSS JOIN events e INDEXED BY events_task_id
- WHERE e.task_id=s.id AND e.id>subscriptions.cursor LIMIT 1))`
+ ) SELECT 1 FROM scope s CROSS JOIN events e INDEXED BY events_hook_task_id
+ WHERE e.task_id=s.id AND e.kind<>'progress' AND e.kind<>'note_deleted' AND e.id>subscriptions.cursor LIMIT 1))`
 	query := `SELECT ` + subscriptionColumns + ` FROM subscriptions WHERE session=?`
 	args := []any{session, timestamp(s.Now())}
 	if includeQuiet {
@@ -239,8 +241,8 @@ func readSnapshot(q Queryer, id int64, summary bool) (Snapshot, error) {
 	}
 	projection := `t.id,t.title,t.status,t.owner,t.progress,t.result,t.updated_at,0`
 	if summary {
-		projection = `t.id,substr(t.title,1,256),t.status,substr(t.owner,1,128),substr(t.progress,1,1024),substr(t.result,1,1024),t.updated_at,
- octet_length(t.title)>octet_length(substr(t.title,1,256)) OR octet_length(t.owner)>octet_length(substr(t.owner,1,128)) OR octet_length(t.progress)>octet_length(substr(t.progress,1,1024)) OR octet_length(t.result)>octet_length(substr(t.result,1,1024))`
+		projection = `t.id,substr(t.title,1,256),t.status,substr(t.owner,1,128),substr(t.progress,1,120),substr(t.result,1,1024),t.updated_at,
+ octet_length(t.title)>octet_length(substr(t.title,1,256)) OR octet_length(t.owner)>octet_length(substr(t.owner,1,128)) OR octet_length(t.progress)>octet_length(substr(t.progress,1,120)) OR octet_length(t.result)>octet_length(substr(t.result,1,1024))`
 	}
 	rows, err := q.Query(descendantScope+`SELECT `+projection+`,(`+availablePredicate+`)
  FROM tasks t JOIN scope s ON t.id=s.id WHERE t.status<>'superseded'
@@ -297,22 +299,26 @@ func (s *Store) current(id string, summary bool) (Snapshot, int64, error) {
 }
 
 func (s *Store) Offer(id, session string, limit int, lease time.Duration) (Delivery, error) {
-	return s.offer(id, session, limit, lease, false, false)
+	return s.offer(id, session, limit, lease, false, false, false)
 }
 
 func (s *Store) OfferQueue(id, session string, limit int, lease time.Duration) (Delivery, error) {
-	return s.offer(id, session, limit, lease, true, false)
+	return s.offer(id, session, limit, lease, true, false, false)
 }
 
 func (s *Store) OfferQueueSummary(id, session string, limit int, lease time.Duration) (Delivery, error) {
-	return s.offer(id, session, limit, lease, true, true)
+	return s.offer(id, session, limit, lease, true, true, false)
 }
 
 func (s *Store) OfferSummary(id, session string, limit int, lease time.Duration) (Delivery, error) {
-	return s.offer(id, session, limit, lease, false, true)
+	return s.offer(id, session, limit, lease, false, true, false)
 }
 
-func (s *Store) offer(id, session string, limit int, lease time.Duration, queue, summary bool) (Delivery, error) {
+func (s *Store) OfferHookSummary(id, session string, limit int, lease time.Duration) (Delivery, error) {
+	return s.offer(id, session, limit, lease, false, true, true)
+}
+
+func (s *Store) offer(id, session string, limit int, lease time.Duration, queue, summary, hook bool) (Delivery, error) {
 	limit, err := eventLimit(limit)
 	if err != nil {
 		return Delivery{}, err
@@ -338,7 +344,12 @@ func (s *Store) offer(id, session string, limit int, lease time.Duration, queue,
 			after = max(record.QueueCursor, record.Cursor)
 			snapshotPending, mode = record.QueueSnapshotPending, "queue"
 		}
-		page, err := readEvents(tx, record.target, after, limit, summary)
+		var page EventPage
+		if hook {
+			page, err = readHookEvents(tx, record.target, after, limit)
+		} else {
+			page, err = readEvents(tx, record.target, after, limit, summary)
+		}
 		if err != nil {
 			return err
 		}
@@ -353,6 +364,11 @@ func (s *Store) offer(id, session string, limit int, lease time.Duration, queue,
 			}
 			delivery.Snapshot = &snapshot
 		}
+		if hook {
+			if err := addHookProgress(tx, &delivery); err != nil {
+				return err
+			}
+		}
 		delivery.Token = newID("D")
 		delivery.LeaseUntil = timestamp(now.Add(lease))
 		delivery.Subscription.LeaseUntil = delivery.LeaseUntil
@@ -364,6 +380,76 @@ func (s *Store) offer(id, session string, limit int, lease time.Duration, queue,
 		return err
 	})
 	return delivery, err
+}
+
+func addHookProgress(q Queryer, delivery *Delivery) error {
+	tasks := map[string]bool{}
+	eventTasks := map[string]bool{}
+	var args []any
+	add := func(id string) error {
+		if tasks[id] {
+			return nil
+		}
+		n, err := taskNumber(id)
+		if err != nil {
+			return err
+		}
+		tasks[id] = true
+		args = append(args, n)
+		return nil
+	}
+	for _, event := range delivery.Events {
+		eventTasks[event.TaskID] = true
+		if err := add(event.TaskID); err != nil {
+			return err
+		}
+	}
+	if delivery.Snapshot != nil {
+		for i := range delivery.Snapshot.Tasks {
+			task := &delivery.Snapshot.Tasks[i]
+			task.Progress = ""
+			if err := add(task.ID); err != nil {
+				return err
+			}
+		}
+	}
+	if len(args) == 0 {
+		return nil
+	}
+	values := strings.TrimSuffix(strings.Repeat("(?),", len(args)), ",")
+	args = append(args, delivery.Through)
+	rows, err := q.Query(`WITH selected_tasks(id) AS (VALUES `+values+`)
+ SELECT n.event_id,n.task_id,substr(n.title,1,120),n.created_at,
+ octet_length(n.title)>octet_length(substr(n.title,1,120))
+ FROM selected_tasks t JOIN notes n ON n.event_id=(
+ SELECT event_id FROM notes INDEXED BY notes_task_order
+ WHERE task_id=t.id AND event_id<=? ORDER BY event_id DESC LIMIT 1)
+ WHERE n.deleted_at=''
+ ORDER BY n.task_id`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var event Event
+		var n int64
+		if err := rows.Scan(&event.ID, &n, &event.Message, &event.CreatedAt, &event.Truncated); err != nil {
+			return err
+		}
+		event.TaskID, event.Kind = taskID(n), "progress"
+		if eventTasks[event.TaskID] {
+			delivery.LatestProgress = append(delivery.LatestProgress, event)
+		}
+		if delivery.Snapshot != nil {
+			for i := range delivery.Snapshot.Tasks {
+				task := &delivery.Snapshot.Tasks[i]
+				if task.ID == event.TaskID {
+					task.Progress = event.Message
+				}
+			}
+		}
+	}
+	return rows.Err()
 }
 
 func (s *Store) Acknowledge(id, session, token string, through int64) error {

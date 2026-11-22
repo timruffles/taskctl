@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 — 2026-11-22
+
+Progress notes with bounded context and a separate body store.
+
+- Require a single-line title of at most 120 characters for new `progress --title` updates; stream optional Markdown from `--body-file`.
+- Keep note metadata and latest titles in `tasks.sqlite`; store long bodies in indexed 64 KiB chunks in a separate `notes.sqlite`.
+- Add paged note lists, metadata inspection, explicit streamed body reads and individual deletion. Deleting the current note does not revive older progress.
+- Preserve legacy `--text`/`--text-file` inputs and migrate existing long progress into note bodies.
+- Keep routine progress silent in Codex hooks; state-change deliveries and resumed snapshots expose only the latest relevant title per task.
+- Add complete directory backups of both databases. Single-file backups reject stores with live bodies rather than silently losing them.
+
+Schema-version-1 projects and backups are migrated to version 2. Older binaries cannot open the upgraded store. Compaction is not included.
+
 ## 0.2.0 — 2026-11-21
 
 Bounded data access and performance release.

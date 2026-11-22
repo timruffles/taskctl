@@ -92,7 +92,7 @@ func TestChaosSQLiteFullRollsBackAndRecovers(t *testing.T) {
 	if _, err = s.DB.Exec(fmt.Sprintf("PRAGMA max_page_count=%d", pages)); err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.Progress(task.ID, task.ClaimID, strings.Repeat("x", 1024*1024))
+	_, err = s.Complete(task.ID, task.ClaimID, strings.Repeat("x", 1024*1024))
 	if ErrorCode(err) != "storage_full" {
 		t.Fatalf("expected bounded SQLite quota fault, got %v", err)
 	}

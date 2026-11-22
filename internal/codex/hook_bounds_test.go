@@ -81,7 +81,7 @@ func TestHookDisclosesShortenedLargeEventText(t *testing.T) {
 	if err := s.Acknowledge(sub.ID, "watcher", initial.Token, initial.Through); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Progress(task.ID, task.ClaimID, strings.Repeat("Large checkpoint ", 10000)); err != nil {
+	if _, err := s.Complete(task.ID, task.ClaimID, strings.Repeat("Large completion result ", 10000)); err != nil {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer

@@ -2,7 +2,7 @@
 
 A local task CLI for a small group of coding agents. Agents claim work, record useful progress and replace stale task definitions with the work that actually remains. You use the same CLI to see what is running, what can start and what is blocked.
 
-One Go binary. SQLite stores tasks, ownership, history and notification cursors. Storage lives outside the repository, so agents in separate worktrees can share a project. Git is optional.
+One Go binary. `tasks.sqlite` stores tasks, ownership, note titles and notification cursors; a separate `notes.sqlite` holds long Markdown bodies. Storage lives outside the repository, so agents in separate worktrees can share a project. Git is optional.
 
 ## Install
 
@@ -98,6 +98,8 @@ Start with these commands while agents work:
 | Pending work waiting on prerequisites | `taskctl tasks blocked` |
 | Current work in one area | `taskctl tasks list --tag import` |
 | A task's brief, latest progress, prerequisites and result | `taskctl tasks show T1` |
+| Recent progress-note titles | `taskctl notes list T1 --limit 10` |
+| One note's full Markdown body | `taskctl notes read NOTE_ID` |
 | Original and replacement definitions | `taskctl tasks history T1` |
 | A snapshot of an original task's overall outcome | `taskctl tasks watch T1 --once` |
 | Completed work | `taskctl tasks list --status completed` |
@@ -111,7 +113,7 @@ taskctl tasks list --tag import --limit 20 --offset 20
 taskctl tasks show T1 --json
 ```
 
-`--json` gives agents and scripts structured output. Task lists include `total`, `omitted` and `next_offset`; `total` counts all matching tasks, including those beyond the current page. History, subscription and scratch lists use `more` and `next_offset`. Lists cap at 200 rows, and omit large briefs and progress text; use `show` for detail.
+`--json` gives agents and scripts structured output. Task lists include `total`, `omitted` and `next_offset`; `total` counts all matching tasks, including those beyond the current page. History, subscription and scratch lists use `more` and `next_offset`. Notes are newest first, with `more` and `next_before`; pass that event ID as `--before` for older entries. Lists cap at 200 rows and omit large briefs and note bodies. `notes read` streams raw Markdown and does not accept `--json`.
 
 Repeated tags mean AND: `--tag import --tag tests` selects tasks carrying both tags. Add a tag with `tasks tag ID --tag TAG`, supplying `--claim` if the task is in progress.
 
@@ -121,10 +123,27 @@ Record a checkpoint when something meaningful changes:
 
 ```sh
 taskctl tasks progress T1 --claim CLAIM_TOKEN \
-  --text 'Valid CSV rows parse; parser tests pass. Malformed-row errors remain.'
+  --title 'Valid CSV rows parse; parser tests pass. Malformed-row errors remain.'
 ```
 
-`show` displays the latest checkpoint. A heartbeat only refreshes activity and is silent by default:
+Titles must fit on one line and contain at most 120 characters. Longer titles are rejected. Add optional Markdown evidence, reproduction steps or investigation details with `--body-file FILE`; `--body-file -` streams from stdin. The new command returns the note's ID and metadata, never its body.
+
+`tasks show` displays only the latest progress title and its note reference. Load more only when needed:
+
+```sh
+taskctl notes list T1 --limit 10
+taskctl notes show NOTE_ID --json
+taskctl notes read NOTE_ID
+taskctl notes delete NOTE_ID --claim CLAIM_TOKEN
+```
+
+The note index, task views and notification events do not contain long bodies. Markdown bodies live in a separate `notes.sqlite` database, in indexed 64 KiB chunks. A read loads only the requested note, with bounded buffering; normal task operations do not read its chunks. Bodies are durable and are not scratch-cleanup targets. Important decisions and acceptance conditions belong in the current task brief or the repository, so they remain visible after a later checkpoint replaces the title.
+
+Deleting a note removes its title and body while keeping a small deletion record for historical references. Supply the current task claim while the task is in progress. Deleting the current note clears the latest progress display; an older title is not substituted. Freed body pages can be reused, but deletion does not promise to shrink the database file. There is no compaction command.
+
+Existing `progress --text` and `--text-file` invocations still work. Input that is already a valid title becomes a title-only note; other text is preserved as a body with a derived title. Legacy `--text-file` retains its 1 MiB input limit; use `--title` and streaming `--body-file` for larger bodies. Supersession leaves old notes with the original task; carry essential facts into the handoff and successor briefs.
+
+A heartbeat only refreshes activity and is silent by default:
 
 ```sh
 taskctl tasks heartbeat T1 --claim CLAIM_TOKEN
@@ -220,7 +239,7 @@ taskctl integrations codex config > taskctl-hooks.json
 
 Merge the generated entries into your Codex hook configuration, such as the project's `.codex/hooks.json`; this command only prints configuration. See the [Codex hooks documentation](https://learn.chatgpt.com/docs/hooks). The generated commands include the absolute taskctl executable and selected project ID, so regenerate them if either changes.
 
-The adapter uses asynchronous `PostToolUse` and `SessionStart` hooks. `PostToolUse` refreshes the executing worker's activity and stays silent when there are no updates. Notifications arrive as bounded context with an explicit ACK command; `SessionStart` can restore a compact current snapshot. Subscribe using the receiving agent's hook identity.
+The adapter uses asynchronous `PostToolUse` and `SessionStart` hooks. `PostToolUse` refreshes the executing worker's activity; ordinary progress notes remain silent. Other task changes arrive as bounded context with an explicit ACK command and at most one latest progress title per included task. `SessionStart` restores a compact current snapshot. Note bodies require an explicit read. Subscribe using the receiving agent's hook identity.
 
 With a watcher or hook running, the default inactivity threshold is 30 minutes. An inactivity event means inspect the worker; it does not establish that the process crashed. Recent activity suppresses repeat inactivity reports.
 
@@ -249,21 +268,24 @@ Keep important code, results and decisions in the repository, and link to them f
 | Data | Location |
 | --- | --- |
 | Database and project manifest | `$XDG_DATA_HOME/taskctl/projects/PROJECT_ID/` |
+| Markdown note bodies | `$XDG_DATA_HOME/taskctl/projects/PROJECT_ID/notes.sqlite` |
 | Disposable scratch | `$XDG_STATE_HOME/taskctl/scratch/PROJECT_ID/` |
 | Optional configuration | `$XDG_CONFIG_HOME/taskctl/config.json` |
 
 The XDG defaults are `~/.local/share`, `~/.local/state` and `~/.config`. Use a local filesystem shared by the local agents; multi-host and network-filesystem coordination are outside the supported scope.
 
-Back up to a consistent SQLite snapshot:
+Back up the task database and its Markdown body database together:
 
 ```sh
-taskctl backup --file taskctl-backup.sqlite
-taskctl restore --file taskctl-backup.sqlite --name recovered-project
+taskctl backup --directory taskctl-backup
+taskctl restore --directory taskctl-backup --name recovered-project
 ```
 
-Use a fresh filename for each backup; an existing file is never overwritten. You can store the resulting snapshot in Git or any backup system. Use `backup` rather than copying a live database file, which may have outstanding WAL writes.
+Use a fresh directory for each backup; an existing destination is never overwritten. A full backup contains `tasks.sqlite`, a `notes.sqlite` snapshot when bodies are present, and a `COMPLETE` marker written last. Restore rejects an incomplete directory. You can store the directory in Git or another backup system. Use `backup` rather than separately copying live databases while agents write to them.
 
-Restore creates a **new project** and leaves the source intact. It preserves task history, releases old active claims, and clears subscriptions and creation request receipts. Attach the new project ID to the intended directory and recreate subscriptions. Scratch contents are not included. Backups are SQLite-only; `--json` remains available for command output.
+Restore creates a **new project** and leaves the source intact. It preserves task history and notes, releases old active claims, and clears subscriptions and creation request receipts. Attach the new project ID to the intended directory and recreate subscriptions. Scratch contents are not included.
+
+`backup --file FILE.sqlite` remains available when the store has no live note bodies; it rejects a backup that would omit one. `restore --file FILE.sqlite --name NAME` accepts old SQLite backups and migrates their progress text into the current note format. A current-format database that references external bodies requires a full directory restore. JSON archives and compaction are not supported.
 
 ## Development and reference
 
@@ -274,5 +296,6 @@ Use `taskctl --help` for exact operation names and flags. Commands reject unknow
 - [Agent skill](skills/taskctl/SKILL.md): activation conditions and links to instructions for the operation at hand.
 - [Design](docs/DESIGN.md) and [decisions](docs/adr/): states, concurrency and notification semantics.
 - [Performance](docs/PERFORMANCE.md): measured scaling, memory use and limits.
+- [Note storage validation](docs/NOTES_VALIDATION.md): streaming memory measurements, migration and process-kill tests.
 - [Validation](docs/VALIDATION.md) and [chaos testing](docs/CHAOS_VALIDATION.md): test evidence and remaining limits.
 - [Changelog](CHANGELOG.md): changes between versions.

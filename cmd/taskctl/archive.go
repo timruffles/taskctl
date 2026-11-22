@@ -13,39 +13,61 @@ func (a *app) backup() error {
 	if len(a.o.pos) != 1 {
 		return usage("backup takes no positional arguments")
 	}
-	if err := a.o.allow("file"); err != nil {
+	if err := a.o.allow("file", "directory"); err != nil {
 		return err
 	}
-	path, err := a.o.require("file")
+	if a.o.has("file") == a.o.has("directory") {
+		return usage("backup requires exactly one of --file or --directory")
+	}
+	flag := "file"
+	if a.o.has("directory") {
+		flag = "directory"
+	}
+	path, err := a.o.require(flag)
 	if err != nil {
 		return err
 	}
 	if path == "-" {
-		return usage("backup requires a file path")
+		return usage("backup requires a filesystem path")
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
-	if err = a.s.Backup(abs); err != nil {
+	if flag == "directory" {
+		err = a.s.BackupDirectory(abs)
+	} else {
+		err = a.s.Backup(abs)
+	}
+	if err != nil {
 		return err
 	}
-	return a.ok(map[string]string{"file": abs, "project_id": a.p.ID}, "backed up "+abs)
+	return a.ok(map[string]string{flag: abs, "project_id": a.p.ID}, "backed up "+abs)
 }
 
 func (a *app) restore() error {
 	if len(a.o.pos) != 1 {
 		return usage("restore takes no positional arguments")
 	}
-	if err := a.o.allow("file", "name", "path"); err != nil {
+	if err := a.o.allow("file", "directory", "name", "path"); err != nil {
 		return err
 	}
 	if a.o.has("project") {
 		return usage("restore creates a new project; omit --project")
 	}
-	path, err := a.o.require("file")
+	if a.o.has("file") == a.o.has("directory") {
+		return usage("restore requires exactly one of --file or --directory")
+	}
+	flag := "file"
+	if a.o.has("directory") {
+		flag = "directory"
+	}
+	path, err := a.o.require(flag)
 	if err != nil {
 		return err
+	}
+	if path == "-" {
+		return usage("restore requires a filesystem path")
 	}
 	name, err := a.o.require("name")
 	if err != nil {
@@ -61,7 +83,11 @@ func (a *app) restore() error {
 		_ = os.RemoveAll(dir)
 		return err
 	}
-	err = s.Restore(path)
+	if flag == "directory" {
+		err = s.RestoreDirectory(path)
+	} else {
+		err = s.Restore(path)
+	}
 	closeErr := s.Close()
 	if err != nil {
 		dir, _ := project.Dir(p.ID)

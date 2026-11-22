@@ -184,7 +184,7 @@ func TestSubscriptionPagesAndHookCandidatesStayBounded(t *testing.T) {
 		t.Fatalf("resume candidates: %d %v", len(resume), err)
 	}
 	id, _ := taskNumber(last[1].TaskID)
-	if err := s.write(func(tx *sql.Tx) error { _, err := s.emit(tx, id, "progress", "new", nil); return err }); err != nil {
+	if err := s.write(func(tx *sql.Tx) error { _, err := s.emit(tx, id, "inactive", "new", nil); return err }); err != nil {
 		t.Fatal(err)
 	}
 	pending, err := s.HookSubscriptions("watcher", false, 6)

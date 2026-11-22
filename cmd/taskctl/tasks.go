@@ -146,6 +146,9 @@ func (a *app) tasks() error {
 		fmt.Fprintln(a.out, "\n"+t.Brief)
 		if t.Progress != "" {
 			fmt.Fprintln(a.out, "\nlatest progress:", t.Progress)
+			if t.ProgressNoteID != "" {
+				fmt.Fprintf(a.out, "note=%s created=%s\n", t.ProgressNoteID, t.ProgressAt)
+			}
 		}
 		if t.Result != "" {
 			fmt.Fprintln(a.out, "\nresult:", t.Result)
@@ -232,18 +235,7 @@ func (a *app) tasks() error {
 		}
 		return a.taskResult(t)
 	case "progress":
-		if err = a.o.allow("claim", "text", "text-file"); err != nil {
-			return err
-		}
-		text, e := a.readText("text")
-		if e != nil {
-			return e
-		}
-		t, e := a.s.Progress(id, claim, text)
-		if e != nil {
-			return e
-		}
-		return a.taskResult(t)
+		return a.progress(id)
 	case "heartbeat":
 		if err = a.o.allow("claim"); err != nil {
 			return err

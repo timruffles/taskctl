@@ -15,11 +15,11 @@ import (
 	"taskctl/internal/store"
 )
 
-const version = "0.2.0"
-const help = `taskctl 0.2.0 — local task tracking
+const version = "0.3.0"
+const help = `taskctl 0.3.0 — local task tracking
 
 Select a project with --project ID, TASKCTL_PROJECT, or a .taskctl.json file.
-Flags may follow positional IDs. All read commands support --json.
+Flags may follow positional IDs. Read commands support --json except notes read.
 
 projects create --name NAME [--path DIR]
 projects attach --project ID --path DIR
@@ -31,7 +31,7 @@ tasks history T1 [--limit N] [--offset N]
 tasks claim T1 --session SESSION
 tasks release T1 --claim TOKEN
 tasks takeover T1 --expected-claim TOKEN --session SESSION --reason TEXT
-tasks progress T1 --claim TOKEN --text TEXT
+tasks progress T1 --claim TOKEN --title TITLE [--body-file FILE|-]
 tasks heartbeat T1 --claim TOKEN
 tasks complete T1 --claim TOKEN --summary TEXT
 tasks cancel T1 --reason TEXT [--claim TOKEN]
@@ -51,12 +51,20 @@ subscriptions watch SUB --session SESSION [--exec PROGRAM | --codex] [--once]
 scratch create T1 | attach T1 --area AREA
 scratch list T1 [--limit N] [--offset N]
 scratch cleanup [--grace 168h] [--dry-run]
+notes list T1 [--limit N] [--before EVENT_ID]
+notes show NOTE_ID [--json]
+notes read NOTE_ID
+notes delete NOTE_ID [--claim TOKEN]
+backup --directory DIR | restore --directory DIR --name NAME
 backup --file FILE.sqlite | restore --file FILE.sqlite --name NAME
 integrations codex config | hook
 version | --help
 
 Human output is compact. --json emits structured output; JSON errors go to stderr.
-Lists and history are paged: default 20, maximum 200. Backups use SQLite only.
+Lists and history are paged: default 20, maximum 200.
+Progress titles are single-line and at most 120 characters. Markdown bodies use a separate notes.sqlite.
+Legacy progress --text/--text-file preserves long text as a body and derives a short title.
+Directory backups include both databases. Single-file backups require no live note bodies.
 Exit codes: 0 success, 1 other failure, 2 usage, 3 conflict, 4 cancelled, 5 timeout.
 Supersede files contain {"summary":"...","replacements":[{"key":"a","title":"...","brief":"..."}],"continue_with":"a"}.
 Replacement prerequisites may refer to new siblings as @key. Repeated --tag filters mean AND.
@@ -128,7 +136,7 @@ func run(o options, in io.Reader, out io.Writer) error {
 		return nil
 	}
 	switch o.pos[0] {
-	case "projects", "restore", "backup", "tasks", "subscriptions", "scratch", "integrations":
+	case "projects", "restore", "backup", "tasks", "subscriptions", "scratch", "notes", "integrations":
 	default:
 		return usage("unknown command " + o.pos[0])
 	}
@@ -172,6 +180,8 @@ func run(o options, in io.Reader, out io.Writer) error {
 		err = a.subscriptions()
 	case "scratch":
 		err = a.scratch()
+	case "notes":
+		err = a.notes()
 	case "integrations":
 		err = a.integrations()
 	default:

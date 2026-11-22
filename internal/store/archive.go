@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/url"
 	"os"
@@ -132,6 +134,21 @@ func invalidArchive(err error) error {
 }
 
 func (s *Store) Backup(path string) error {
+	unlock, err := s.noteLock(true)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := s.checkBackupDestination(path); err != nil {
+		return err
+	}
+	if err := requireNoNoteBodies(s.DB); err != nil {
+		return err
+	}
+	return s.backupSQLite(path)
+}
+
+func (s *Store) backupSQLite(path string) error {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return err
@@ -175,19 +192,52 @@ func syncDirectory(path string) error {
 	return f.Sync()
 }
 
-func openBackup(path string) (*sql.DB, *sql.Tx, string, error) {
+func validateSQLiteFile(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return classify(err)
+	}
+	if !info.Mode().IsRegular() {
+		return failure("invalid_backup", "expected a regular SQLite backup file")
+	}
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, "", classify(err)
+		return classify(err)
 	}
-	var header [16]byte
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return failure("invalid_backup", "backup changed while opening")
+	}
+	var header [100]byte
 	_, err = io.ReadFull(f, header[:])
-	f.Close()
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return nil, nil, "", classify(err)
+		return classify(err)
 	}
-	if err != nil || string(header[:]) != "SQLite format 3\x00" {
-		return nil, nil, "", failure("invalid_backup", "expected a taskctl SQLite backup")
+	if err != nil || string(header[:16]) != "SQLite format 3\x00" {
+		return failure("invalid_backup", "expected a taskctl SQLite backup")
+	}
+	pageSize := int64(binary.BigEndian.Uint16(header[16:18]))
+	if pageSize == 1 {
+		pageSize = 65536
+	}
+	if pageSize < 512 || pageSize > 65536 || pageSize&(pageSize-1) != 0 || opened.Size() < pageSize || opened.Size()%pageSize != 0 {
+		return failure("invalid_backup", "SQLite backup has an incomplete page")
+	}
+	wal, walErr := os.Stat(path + "-wal")
+	if walErr != nil && !errors.Is(walErr, os.ErrNotExist) {
+		return classify(walErr)
+	}
+	pages := int64(binary.BigEndian.Uint32(header[28:32]))
+	if (wal == nil || wal.Size() == 0) && pages != 0 && binary.BigEndian.Uint32(header[24:28]) == binary.BigEndian.Uint32(header[92:96]) && opened.Size() != pages*pageSize {
+		return failure("invalid_backup", "SQLite backup length does not match its header")
+	}
+	return nil
+}
+
+func openBackup(path string) (*sql.DB, *sql.Tx, string, error) {
+	if err := validateSQLiteFile(path); err != nil {
+		return nil, nil, "", err
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -229,8 +279,8 @@ func openBackup(path string) (*sql.DB, *sql.Tx, string, error) {
 	if err = tx.QueryRow("SELECT value FROM store_info WHERE key='schema_version'").Scan(&version); err != nil {
 		return fail(invalidArchive(err))
 	}
-	if version != "1" {
-		return fail(failure("unsupported_schema", "backup schema must be version 1"))
+	if version != "1" && version != "2" {
+		return fail(failure("unsupported_schema", "backup schema must be version 1 or 2"))
 	}
 	if err = tx.QueryRow("SELECT value FROM store_info WHERE key='project_id'").Scan(&projectID); err != nil {
 		return fail(invalidArchive(err))
@@ -272,6 +322,10 @@ func validateBackupColumns(source *sql.Tx, table string, columns []archiveColumn
 }
 
 func restoreTable(source, target *sql.Tx, table string) error {
+	return restoreTableProgress(source, target, table, false)
+}
+
+func restoreTableProgress(source, target *sql.Tx, table string, legacy bool) error {
 	columns, err := archiveColumns(target, table)
 	if err != nil {
 		return err
@@ -285,7 +339,18 @@ func restoreTable(source, target *sql.Tx, table string) error {
 		names[i], slots[i], destinations[i] = "\""+column.name+"\"", "?", &values[i]
 	}
 	columnList := strings.Join(names, ",")
-	rows, err := source.Query("SELECT " + columnList + " FROM " + table)
+	selectNames := append([]string(nil), names...)
+	if legacy {
+		for i, column := range columns {
+			if table == "tasks" && column.name == "progress" {
+				selectNames[i] = "CASE WHEN typeof(progress)='text' THEN '' ELSE progress END"
+			}
+			if table == "events" && column.name == "message" {
+				selectNames[i] = "CASE WHEN kind='progress' AND typeof(message)='text' THEN '' ELSE message END"
+			}
+		}
+	}
+	rows, err := source.Query("SELECT " + strings.Join(selectNames, ",") + " FROM " + table)
 	if err != nil {
 		return invalidArchive(err)
 	}
@@ -312,14 +377,42 @@ func restoreTable(source, target *sql.Tx, table string) error {
 }
 
 func (s *Store) Restore(path string) error {
-	sourceDB, source, projectID, err := openBackup(path)
+	unlock, err := s.noteLock(false)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := validateSQLiteFile(path); err != nil {
+		return err
+	}
+	stage, err := os.MkdirTemp(filepath.Dir(s.NotesPath()), ".taskctl-restore-*")
+	if err != nil {
+		return classify(err)
+	}
+	defer os.RemoveAll(stage)
+	snapshotPath := filepath.Join(stage, "tasks.sqlite")
+	if err := snapshotSQLite(path, snapshotPath); err != nil {
+		return invalidArchive(err)
+	}
+	sourceDB, source, projectID, err := openBackup(snapshotPath)
 	if err != nil {
 		return err
 	}
 	defer sourceDB.Close()
 	defer source.Rollback()
+	if err := requireNoNoteBodies(source); err != nil {
+		return err
+	}
+	return s.restoreSource(source, projectID, nil)
+}
+
+func (s *Store) restoreSource(source *sql.Tx, projectID string, prepareNotes func(*sql.Tx) error) error {
+	var version string
+	if err := source.QueryRow("SELECT value FROM store_info WHERE key='schema_version'").Scan(&version); err != nil {
+		return invalidArchive(err)
+	}
 	return s.write(func(tx *sql.Tx) error {
-		for _, table := range append(append([]string{}, archiveTables...), "create_requests", "scratch_cleanup_state") {
+		for _, table := range append(append([]string{}, archiveTables...), "create_requests", "scratch_cleanup_state", "notes") {
 			var occupied bool
 			if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM " + table + ")").Scan(&occupied); err != nil {
 				return err
@@ -332,7 +425,15 @@ func (s *Store) Restore(path string) error {
 			return err
 		}
 		for _, table := range archiveTables {
-			if err := restoreTable(source, tx, table); err != nil {
+			if err := restoreTableProgress(source, tx, table, version == "1"); err != nil {
+				return err
+			}
+		}
+		if version == "2" {
+			if err := restoreTable(source, tx, "notes"); err != nil {
+				return err
+			}
+			if err := validateBackupNotes(tx); err != nil {
 				return err
 			}
 		}
@@ -362,6 +463,15 @@ func (s *Store) Restore(path string) error {
 		}
 		if hasBadFK {
 			return failure("invalid_backup", "broken foreign key")
+		}
+		if version == "1" {
+			if err := s.migrateNotesFrom(source, tx); err != nil {
+				return err
+			}
+		} else if prepareNotes != nil {
+			if err := prepareNotes(tx); err != nil {
+				return err
+			}
 		}
 		now := timestamp(s.Now())
 		data, err := json.Marshal(map[string]string{"source_project": projectID})

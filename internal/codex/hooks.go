@@ -138,7 +138,7 @@ func Handle(s *store.Store, input io.Reader, output io.Writer, options Options) 
 			truncated = true
 			break
 		}
-		delivery, err := s.OfferSummary(subscription.ID, owner, remaining, options.Lease)
+		delivery, err := s.OfferHookSummary(subscription.ID, owner, remaining, options.Lease)
 		if err != nil {
 			if store.ErrorCode(err) == "not_found" {
 				continue
@@ -153,16 +153,23 @@ func Handle(s *store.Store, input io.Reader, output io.Writer, options Options) 
 		}
 		var group string
 		var resumed *store.Snapshot
-		if delivery.Token == "" {
-			if hook.HookEventName != "SessionStart" {
-				continue
-			}
+		if hook.HookEventName == "SessionStart" {
 			snapshot, err := s.SnapshotSummary(subscription.TaskID)
 			if err != nil {
+				if delivery.Token != "" {
+					_ = s.ReleaseDelivery(subscription.ID, delivery.Token)
+				}
 				return err
 			}
 			resumed = &snapshot
-			group = formatSnapshot(snapshot)
+			delivery.Snapshot = resumed
+			delivery.LatestProgress = nil
+		}
+		if delivery.Token == "" {
+			if resumed == nil {
+				continue
+			}
+			group = formatSnapshot(*resumed)
 		} else {
 			group = formatDelivery(delivery, options.Executable, s.ProjectID, owner)
 		}
@@ -175,12 +182,16 @@ func Handle(s *store.Store, input io.Reader, output io.Writer, options Options) 
 					if err := s.ReleaseDelivery(subscription.ID, delivery.Token); err != nil {
 						return err
 					}
-					delivery, err = s.OfferSummary(subscription.ID, owner, max(1, len(delivery.Events)/2), options.Lease)
+					delivery, err = s.OfferHookSummary(subscription.ID, owner, max(1, len(delivery.Events)/2), options.Lease)
 					if err != nil {
 						if store.ErrorCode(err) == "delivery_busy" || store.ErrorCode(err) == "not_found" {
 							break
 						}
 						return err
+					}
+					if resumed != nil {
+						delivery.Snapshot = resumed
+						delivery.LatestProgress = nil
 					}
 					group = formatCompactDelivery(delivery, options.Executable, s.ProjectID, owner)
 				}
@@ -256,12 +267,11 @@ func formatSnapshot(snapshot store.Snapshot) string {
 		if task.Owner != "" {
 			fmt.Fprintf(&out, " (owner %q)", shortText(task.Owner, 64))
 		}
-		text := task.Progress
-		if task.Status == "completed" || task.Status == "cancelled" {
-			text = task.Result
+		if task.Progress != "" {
+			fmt.Fprintf(&out, "; latest note: %q", shortText(task.Progress, 480))
 		}
-		if text != "" {
-			fmt.Fprintf(&out, ": %q", shortText(text, 160))
+		if (task.Status == "completed" || task.Status == "cancelled") && task.Result != "" {
+			fmt.Fprintf(&out, "; result: %q", shortText(task.Result, 160))
 		}
 		out.WriteByte('\n')
 		shown++
@@ -282,23 +292,20 @@ func formatDelivery(delivery store.Delivery, executable, project, owner string) 
 		out.WriteString(formatSnapshot(*delivery.Snapshot))
 	}
 	shortened := false
-	for i := 0; i < len(delivery.Events); i++ {
-		event := delivery.Events[i]
+	for _, event := range delivery.Events {
 		shortened = shortened || event.Truncated
-		count := 1
-		if event.Kind == "progress" {
-			for i+1 < len(delivery.Events) && delivery.Events[i+1].Kind == "progress" && delivery.Events[i+1].TaskID == event.TaskID {
-				i++
-				count++
-				event = delivery.Events[i]
-				shortened = shortened || event.Truncated
+		fmt.Fprintf(&out, "- E%d %s %s: %q\n", event.ID, event.TaskID, event.Kind, shortText(event.Message, 240))
+	}
+	for _, event := range delivery.LatestProgress {
+		shown := false
+		if delivery.Snapshot != nil {
+			for _, task := range delivery.Snapshot.Tasks[:min(3, len(delivery.Snapshot.Tasks))] {
+				shown = shown || task.ID == event.TaskID
 			}
 		}
-		fmt.Fprintf(&out, "- E%d %s %s", event.ID, event.TaskID, event.Kind)
-		if count > 1 {
-			fmt.Fprintf(&out, " (%d updates)", count)
+		if !shown {
+			fmt.Fprintf(&out, "- %s latest note (E%d): %q\n", event.TaskID, event.ID, shortText(event.Message, 480))
 		}
-		fmt.Fprintf(&out, ": %q\n", shortText(event.Message, 240))
 	}
 	if shortened {
 		fmt.Fprintf(&out, "Event text is shortened; read full events with tasks watch %s --after %d --once --json.\n", delivery.Subscription.TaskID, delivery.Subscription.Cursor)

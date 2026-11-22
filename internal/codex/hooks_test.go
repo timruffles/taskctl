@@ -110,7 +110,7 @@ func TestHookChildIdentityDurableAckAndQuietUnchangedOutput(t *testing.T) {
 	}
 }
 
-func TestHookCapsAndCoalescesProgressWithoutAdvancingUndisplayedEvents(t *testing.T) {
+func TestHookBoundsActionablePagesWithoutAdvancingUndisplayedEvents(t *testing.T) {
 	s := hookStore(t)
 	task := hookTask(t, s, "bounded context", "worker")
 	sub, err := s.Subscribe(task.ID, "watcher", false)
@@ -125,7 +125,7 @@ func TestHookCapsAndCoalescesProgressWithoutAdvancingUndisplayedEvents(t *testin
 		t.Fatal(err)
 	}
 	for i := 0; i < 6; i++ {
-		if _, err := s.Progress(task.ID, task.ClaimID, strconv.Itoa(i)+strings.Repeat("long useful progress context ", 100)); err != nil {
+		if err := s.MetadataSet(task.ID, task.ClaimID, "checkpoint-"+strconv.Itoa(i), strings.Repeat("long useful metadata ", 100)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -140,8 +140,13 @@ func TestHookCapsAndCoalescesProgressWithoutAdvancingUndisplayedEvents(t *testin
 			t.Fatal(err)
 		}
 		context := hookContext(t, output.Bytes(), "PostToolUse")
-		if len(context) > 2000 || !strings.Contains(context, "(2 updates)") {
-			t.Fatalf("context was not bounded and coalesced: %s", context)
+		if len(context) > 2000 {
+			t.Fatalf("context was not bounded: %s", context)
+		}
+		for _, event := range expected.Events[page*2 : page*2+2] {
+			if !strings.Contains(context, "E"+strconv.FormatInt(event.ID, 10)+" "+event.TaskID+" "+event.Kind) {
+				t.Fatalf("page omitted an acknowledged event: %s", context)
+			}
 		}
 		token, through := currentDelivery(t, s, sub)
 		received = append(received, through)
@@ -153,7 +158,7 @@ func TestHookCapsAndCoalescesProgressWithoutAdvancingUndisplayedEvents(t *testin
 		}
 	}
 	if len(received) != 3 {
-		t.Fatal("missing progress pages")
+		t.Fatal("missing event pages")
 	}
 }
 

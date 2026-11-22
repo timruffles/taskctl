@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"unicode"
@@ -73,6 +74,8 @@ type Task struct {
 	Metadata       map[string]string `json:"metadata"`
 	Prerequisites  []string          `json:"prerequisites"`
 	Progress       string            `json:"progress"`
+	ProgressNoteID string            `json:"progress_note_id,omitempty"`
+	ProgressAt     string            `json:"progress_at,omitempty"`
 	Result         string            `json:"result"`
 	CreatedAt      string            `json:"created_at"`
 	UpdatedAt      string            `json:"updated_at"`
@@ -101,7 +104,9 @@ const taskProjection = `
  COALESCE(t.created_at,''),COALESCE(t.updated_at,''),COALESCE(t.last_activity_at,''),
  (SELECT json_group_array(tag) FROM (SELECT tag FROM tags WHERE task_id=t.id ORDER BY tag)),
  (SELECT json_group_object(key,value) FROM (SELECT key,value FROM metadata WHERE task_id=t.id ORDER BY key)),
- (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id))`
+ (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id)),
+ COALESCE((SELECT CASE WHEN deleted_at='' THEN id ELSE '' END FROM notes WHERE task_id=t.id ORDER BY event_id DESC LIMIT 1),''),
+ COALESCE((SELECT CASE WHEN deleted_at='' THEN created_at ELSE '' END FROM notes WHERE task_id=t.id ORDER BY event_id DESC LIMIT 1),'')`
 
 const listTaskProjection = `
  COALESCE(t.id,0),COALESCE(t.title,''),'',COALESCE(t.status,''),
@@ -110,7 +115,7 @@ const listTaskProjection = `
  COALESCE(t.created_at,''),COALESCE(t.updated_at,''),COALESCE(t.last_activity_at,''),
  (SELECT json_group_array(tag) FROM (SELECT tag FROM tags WHERE task_id=t.id ORDER BY tag)),
  '{}',
- (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id))`
+ (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id)), '', ''`
 
 type taskScanner interface{ Scan(...any) error }
 
@@ -120,7 +125,7 @@ func scanTask(row taskScanner, prefix ...any) (Task, error) {
 	var tagsJSON, metadataJSON, prerequisitesJSON string
 	dest := append(prefix, &id, &t.Title, &t.Brief, &t.Status, &origin, &parent,
 		&t.Revision, &t.Owner, &t.ClaimID, &t.Progress, &t.Result, &t.CreatedAt,
-		&t.UpdatedAt, &t.LastActivityAt, &tagsJSON, &metadataJSON, &prerequisitesJSON)
+		&t.UpdatedAt, &t.LastActivityAt, &tagsJSON, &metadataJSON, &prerequisitesJSON, &t.ProgressNoteID, &t.ProgressAt)
 	if err := row.Scan(dest...); err != nil {
 		return Task{}, err
 	}
@@ -607,17 +612,16 @@ func (s *Store) Progress(id, claim, text string) (Task, error) {
 	if strings.TrimSpace(text) == "" {
 		return Task{}, failure("invalid_input", "progress must not be empty")
 	}
-	return s.taskWrite(id, func(tx *sql.Tx, n int64, t Task) error {
-		if err := requireCurrentClaim(t, claim); err != nil {
-			return err
-		}
-		now := timestamp(s.Now())
-		if _, err := tx.Exec(`UPDATE tasks SET progress=?,revision=revision+1,updated_at=?,last_activity_at=? WHERE id=?`, text, now, now, n); err != nil {
-			return err
-		}
-		_, err := s.emit(tx, n, "progress", text, map[string]any{"owner": t.Owner})
-		return err
-	})
+	title, err := validateNoteTitle(text)
+	var body io.Reader
+	if err != nil || title != text {
+		title = legacyNoteTitle(text)
+		body = strings.NewReader(text)
+	}
+	if _, err = s.AddNote(id, claim, title, body); err != nil {
+		return Task{}, err
+	}
+	return s.Get(id)
 }
 
 func (s *Store) Heartbeat(id, claim string) error {

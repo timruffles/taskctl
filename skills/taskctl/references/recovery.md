@@ -29,17 +29,17 @@ If recovery is the requested next step, use the exact current `claim_id`:
 taskctl tasks takeover T1 --expected-claim OLD_CLAIM --session NEW_SESSION --reason 'Previous worker terminated; recovering its worktree' --json
 ```
 
-Retain the new token. Inspect the actual files and run relevant checks before recording a recovery checkpoint. Use the task's durable artifact references, and history only for missing context. Supersede a stale brief before continuing substantial remaining work.
+Retain the new token. Inspect the actual files and run relevant checks before recording a recovery checkpoint. Use durable artifact references and the latest progress title first. If detail is missing, list note titles with `notes list ID --limit 10 --json`, then read a relevant body with `notes read NOTE_ID`. Supersede a stale brief before continuing substantial remaining work.
 
 Task claims never expire automatically. If the original owner is available, it can record progress and `tasks release` instead. Fresh activity prevents inactivity warnings but does not establish visible accomplishment; when reporting stalled work, compare the recorded progress with the files and tests.
 
 ## Back up or restore
 
 ```sh
-taskctl backup --file /absolute/backups/taskctl.sqlite
-taskctl restore --file /absolute/backups/taskctl.sqlite --name recovered-project
+taskctl backup --directory /absolute/backups/taskctl-snapshot
+taskctl restore --directory /absolute/backups/taskctl-snapshot --name recovered-project
 ```
 
-Choose a new backup filename: an existing destination is rejected. Use the SQLite snapshot produced by `backup`; copying only a live WAL database's main file can omit committed work. JSON archives are not supported.
+Choose a new backup directory: an existing destination is rejected. A full backup includes `tasks.sqlite`, `notes.sqlite` when bodies are present, and a completion marker. Copying the live databases separately is not a consistent backup. Single-file `backup --file` requires no live note bodies; `restore --file` accepts old SQLite backups. JSON archives and compaction are not supported.
 
-Restore creates a new project, releases old active claims, clears subscriptions and creation request receipts, and marks restored scratch references unavailable. It preserves durable task definitions, results and lineage. Attach the new project to the intended worktree with `projects attach --project NEW_PROJECT --path DIR`, then claim work and create subscriptions afresh. Treat scratch contents as disposable; restore important files from the repository or its own backup.
+Restore creates a new project, releases old active claims, clears subscriptions and creation request receipts, and marks restored scratch references unavailable. It preserves task definitions, notes, results and lineage. Attach the new project to the intended worktree with `projects attach --project NEW_PROJECT --path DIR`, then claim work and create subscriptions afresh. Note bodies are durable and separate from disposable scratch.

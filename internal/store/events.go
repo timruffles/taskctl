@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 	"unicode"
@@ -51,6 +52,29 @@ CREATE TABLE IF NOT EXISTS inactivity_marks(
 );
 `
 
+const hookIndexSQL = `CREATE INDEX events_hook_task_id ON events(task_id,id) WHERE kind<>'progress' AND kind<>'note_deleted'`
+
+func hookIndexCurrent(q Queryer) (bool, error) {
+	var statement string
+	err := q.QueryRow("SELECT sql FROM sqlite_schema WHERE type='index' AND name='events_hook_task_id'").Scan(&statement)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return statement == hookIndexSQL, err
+}
+
+func ensureHookIndex(tx *sql.Tx) error {
+	current, err := hookIndexCurrent(tx)
+	if err != nil || current {
+		return err
+	}
+	if _, err := tx.Exec("DROP INDEX IF EXISTS events_hook_task_id"); err != nil {
+		return err
+	}
+	_, err = tx.Exec(hookIndexSQL)
+	return err
+}
+
 type Event struct {
 	ID        int64           `json:"id"`
 	TaskID    string          `json:"task_id"`
@@ -91,15 +115,30 @@ const selectedEvents = descendantScope + `, selected(id) AS MATERIALIZED (
  ORDER BY e.id LIMIT ?
 ) `
 
+const selectedHookEvents = descendantScope + `, selected(id) AS MATERIALIZED (
+ SELECT e.id FROM scope s CROSS JOIN events e
+ WHERE e.id IN (SELECT id FROM events INDEXED BY events_hook_task_id
+  WHERE task_id=s.id AND kind<>'progress' AND kind<>'note_deleted' AND id>? ORDER BY id LIMIT ?)
+ ORDER BY e.id LIMIT ?
+) `
+
 func readEventPage(q Queryer, id, after int64, limit int) (EventPage, error) {
 	return readEvents(q, id, after, limit, false)
 }
 
 func readEvents(q Queryer, id, after int64, limit int, summary bool) (EventPage, error) {
+	return readSelectedEvents(q, id, after, limit, summary, selectedEvents)
+}
+
+func readHookEvents(q Queryer, id, after int64, limit int) (EventPage, error) {
+	return readSelectedEvents(q, id, after, limit, true, selectedHookEvents)
+}
+
+func readSelectedEvents(q Queryer, id, after int64, limit int, summary bool, selection string) (EventPage, error) {
 	page := EventPage{Events: []Event{}, Cursor: after}
 	ids := make([]any, 0, limit)
 	if !summary {
-		rows, err := q.Query(selectedEvents+`SELECT e.id,
+		rows, err := q.Query(selection+`SELECT e.id,
  octet_length(e.kind)+octet_length(e.message)+octet_length(e.data)+octet_length(e.created_at)+64
  FROM selected s JOIN events e ON e.id=s.id ORDER BY e.id`, id, after, limit+1, limit+1)
 		if err != nil {
@@ -128,7 +167,7 @@ func readEvents(q Queryer, id, after int64, limit int, summary bool) (EventPage,
 	query := `SELECT id,task_id,kind,message,data,created_at,0 FROM events WHERE id IN (` + strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",") + `) ORDER BY id`
 	args := ids
 	if summary {
-		query = selectedEvents + `SELECT e.id,e.task_id,substr(e.kind,1,64),substr(e.message,1,1024),'null',e.created_at,
+		query = selection + `SELECT e.id,e.task_id,substr(e.kind,1,64),substr(e.message,1,1024),'null',e.created_at,
  octet_length(e.kind)>octet_length(substr(e.kind,1,64)) OR octet_length(e.message)>octet_length(substr(e.message,1,1024)) FROM selected s JOIN events e ON e.id=s.id ORDER BY e.id`
 		args = []any{id, after, limit + 1, limit + 1}
 	}
