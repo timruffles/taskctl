@@ -1,5 +1,7 @@
 # taskctl
 
+_Work in progress - do not use if you're not me_
+
 A local task CLI for a small group of coding agents. Agents claim work, record useful progress and replace stale task definitions with the work that actually remains. You use the same CLI to see what is running, what can start and what is blocked.
 
 One Go binary. `tasks.sqlite` stores tasks, ownership, note titles and notification cursors; a separate `notes.sqlite` holds long Markdown bodies. Storage lives outside the repository, so agents in separate worktrees can share a project. Git is optional.
