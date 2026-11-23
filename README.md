@@ -6,7 +6,7 @@ One Go binary. `tasks.sqlite` stores tasks, ownership, note titles and notificat
 
 ## Install
 
-Download the archive for your platform from [GitHub Releases](https://github.com/timruffles/taskctl/releases), check it against `SHA256SUMS` and extract `taskctl` into a directory on your `PATH`. Releases include Linux amd64 and macOS arm64 binaries plus a matching source archive with vendored dependencies.
+Download the archive for your platform from [GitHub Releases](https://github.com/timruffles/taskctl/releases), check it against `SHA256SUMS` and extract `taskctl` into a directory on your `PATH`. Releases include Linux and macOS binaries for both amd64 and arm64 plus a matching source archive with vendored dependencies.
 
 Build from this checkout with Go 1.26 or newer:
 
@@ -19,7 +19,7 @@ taskctl version
 
 Linux and macOS are supported. SQLite is embedded; running taskctl needs neither a SQLite installation nor a C toolchain.
 
-Passing `main` builds also publish `taskctl-linux-amd64.tar.gz` and `taskctl-darwin-arm64.tar.gz` in **Actions → CI**. These development artifacts are retained for 14 days.
+Passing `main` builds also publish all four binary archives in **Actions → CI**. These development artifacts are retained for 14 days.
 
 ## Use it with agents
 
@@ -309,7 +309,7 @@ Restore creates a **new project** and leaves the source intact. It preserves tas
 
 ## Development and reference
 
-[CI](.github/workflows/ci.yml) runs root unit, process and chaos tests, both example modules and `go vet` on Linux and macOS. Tests use the race detector. Pull requests, pushes to `main` and manual runs trigger checks; successful main runs build the two binary artifacts.
+[CI](.github/workflows/ci.yml) runs root unit, process and chaos tests, both example modules and `go vet` on Linux and macOS. Tests use the race detector. Pull requests, pushes to `main`, version tags and manual runs trigger checks. Successful main and version tag runs build all four binary archives.
 
 Use `taskctl --help` for exact operation names and flags. Commands reject unknown flags. With `--json`, data goes to stdout and structured errors to stderr. Exit codes are 0 success, 1 operational failure, 2 invalid input, 3 conflict or busy, 4 cancelled watched work, 5 timeout, and 130 interrupted watch.
 
@@ -326,7 +326,7 @@ Version 0.4.0 names the replacement operation `evolve` and reports its state and
 
 ## Releasing
 
-Push a version tag such as `v0.5.0`. CI runs the tests before publishing both binary archives, their matching source archive and SHA-256 checksums. Released binaries report the tag version without its leading `v`.
+Push a version tag such as `v0.5.1`. CI runs the tests before publishing all four binary archives, their matching source archive and SHA-256 checksums. Released binaries report the tag version without its leading `v`.
 
 ## License
 

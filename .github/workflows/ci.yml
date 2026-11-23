@@ -56,11 +56,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,14 +91,14 @@ jobs:
           ) > dist/THIRD_PARTY_NOTICES
           tar -czf "taskctl-${GOOS}-${GOARCH}.tar.gz" -C dist taskctl LICENSE THIRD_PARTY_NOTICES
       - name: Package corresponding source
-        if: github.ref_type == 'tag' && matrix.goos == 'linux'
+        if: github.ref_type == 'tag' && matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: |
           mkdir -p dist/source
           git archive HEAD | tar -xf - -C dist/source
           cp -R vendor dist/source/
           tar -czf taskctl-source.tar.gz -C dist/source .
       - name: Upload corresponding source
-        if: github.ref_type == 'tag' && matrix.goos == 'linux'
+        if: github.ref_type == 'tag' && matrix.goos == 'linux' && matrix.goarch == 'amd64'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: taskctl-source.tar.gz
@@ -133,6 +130,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sha256sum taskctl-darwin-arm64.tar.gz taskctl-linux-amd64.tar.gz taskctl-source.tar.gz > SHA256SUMS
+          archives=(taskctl-{darwin,linux}-{amd64,arm64}.tar.gz taskctl-source.tar.gz)
+          sha256sum "${archives[@]}" > SHA256SUMS
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
-            taskctl-darwin-arm64.tar.gz taskctl-linux-amd64.tar.gz taskctl-source.tar.gz SHA256SUMS
+            "${archives[@]}" SHA256SUMS
