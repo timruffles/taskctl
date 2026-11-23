@@ -6,6 +6,8 @@ One Go binary. `tasks.sqlite` stores tasks, ownership, note titles and notificat
 
 ## Install
 
+Download the archive for your platform from [GitHub Releases](https://github.com/timruffles/taskctl/releases), check it against `SHA256SUMS` and extract `taskctl` into a directory on your `PATH`. Releases include Linux amd64 and macOS arm64 binaries plus a matching source archive with vendored dependencies.
+
 Build from this checkout with Go 1.26 or newer:
 
 ```sh
@@ -17,7 +19,7 @@ taskctl version
 
 Linux and macOS are supported. SQLite is embedded; running taskctl needs neither a SQLite installation nor a C toolchain.
 
-Passing `main` builds also publish `taskctl-linux-amd64.tar.gz` and `taskctl-darwin-arm64.tar.gz` in **Actions → CI**. Each archive contains the executable `taskctl`; extract it into a directory on your `PATH`. Artifacts are retained for 14 days.
+Passing `main` builds also publish `taskctl-linux-amd64.tar.gz` and `taskctl-darwin-arm64.tar.gz` in **Actions → CI**. These development artifacts are retained for 14 days.
 
 ## Use it with agents
 
@@ -321,3 +323,11 @@ Version 0.4.0 names the replacement operation `evolve` and reports its state and
 - [Note storage validation](docs/NOTES_VALIDATION.md): streaming memory measurements, migration and process-kill tests.
 - [Validation](docs/VALIDATION.md) and [chaos testing](docs/CHAOS_VALIDATION.md): test evidence and remaining limits.
 - [Changelog](CHANGELOG.md): changes between versions.
+
+## Releasing
+
+Push a version tag such as `v0.5.0`. CI runs the tests before publishing both binary archives, their matching source archive and SHA-256 checksums. Released binaries report the tag version without its leading `v`.
+
+## License
+
+Copyright © 2026 Tim Ruffles. taskctl is licensed under the [GNU Affero General Public License, version 3 only](LICENSE) (`AGPL-3.0-only`). Dependencies retain their own licenses. Binary archives include their third-party notices.

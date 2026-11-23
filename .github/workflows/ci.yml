@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   pull_request:
   workflow_dispatch:
 
@@ -49,7 +50,7 @@ jobs:
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -74,9 +75,38 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          go mod vendor
           mkdir -p dist
-          go build -buildvcs=false -trimpath -ldflags='-s -w' -o dist/taskctl ./cmd/taskctl
-          tar -czf "taskctl-${GOOS}-${GOARCH}.tar.gz" -C dist taskctl
+          flags="-s -w"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            flags="$flags -X main.version=${GITHUB_REF_NAME#v}"
+          fi
+          go build -mod=vendor -buildvcs=false -trimpath -ldflags="$flags" -o dist/taskctl ./cmd/taskctl
+          cp LICENSE dist/
+          (
+            cd vendor
+            find . -type f \
+              \( -iname 'license*' -o -iname 'notice*' -o -iname 'copying*' -o -iname 'patents*' \) \
+              | LC_ALL=C sort | while IFS= read -r file; do
+                printf '\n===== %s =====\n' "$file"
+                cat "$file"
+              done
+          ) > dist/THIRD_PARTY_NOTICES
+          tar -czf "taskctl-${GOOS}-${GOARCH}.tar.gz" -C dist taskctl LICENSE THIRD_PARTY_NOTICES
+      - name: Package corresponding source
+        if: github.ref_type == 'tag' && matrix.goos == 'linux'
+        run: |
+          mkdir -p dist/source
+          git archive HEAD | tar -xf - -C dist/source
+          cp -R vendor dist/source/
+          tar -czf taskctl-source.tar.gz -C dist/source .
+      - name: Upload corresponding source
+        if: github.ref_type == 'tag' && matrix.goos == 'linux'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: taskctl-source.tar.gz
+          archive: false
+          if-no-files-found: error
       - name: Upload binary
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -84,3 +114,25 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    if: github.ref_type == 'tag' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: taskctl-*.tar.gz
+          merge-multiple: true
+          path: release
+      - name: Publish binaries and matching source
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum taskctl-darwin-arm64.tar.gz taskctl-linux-amd64.tar.gz taskctl-source.tar.gz > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
+            taskctl-darwin-arm64.tar.gz taskctl-linux-amd64.tar.gz taskctl-source.tar.gz SHA256SUMS

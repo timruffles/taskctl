@@ -15,8 +15,8 @@ import (
 	"taskctl/internal/store"
 )
 
-const version = "0.4.0"
-const help = `taskctl 0.4.0 — local task tracking
+var version = "0.4.0"
+var help = "taskctl " + version + ` — local task tracking
 
 Select a project with --project ID, TASKCTL_PROJECT, or a .taskctl.json file.
 Flags may follow positional IDs. Read commands support --json except notes read.
