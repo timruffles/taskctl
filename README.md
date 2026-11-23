@@ -115,7 +115,7 @@ taskctl tasks show T1 --json
 
 `--json` gives agents and scripts structured output. Task lists include `total`, `omitted` and `next_offset`; `total` counts all matching tasks, including those beyond the current page. History, subscription and scratch lists use `more` and `next_offset`. Notes are newest first, with `more` and `next_before`; pass that event ID as `--before` for older entries. Lists cap at 200 rows and omit large briefs and note bodies. `notes read` streams raw Markdown and does not accept `--json`.
 
-Repeated tags mean AND: `--tag import --tag tests` selects tasks carrying both tags. Add a tag with `tasks tag ID --tag TAG`, supplying `--claim` if the task is in progress.
+Repeated tags mean AND: `--tag import --tag tests` selects tasks carrying both tags. Repeat `--exclude-tag` to omit tasks carrying any excluded tag. For example, `taskctl tasks available --exclude-tag human --exclude-tag epic` shows the agent queue. Tag filters apply before pagination. Add a tag with `tasks tag ID --tag TAG`, supplying `--claim` if the task is in progress.
 
 ## Keep progress and task definitions current
 

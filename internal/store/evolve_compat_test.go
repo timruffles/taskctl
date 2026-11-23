@@ -88,7 +88,7 @@ func TestEvolvePublicNamesPreserveStoredProtocolAndClaims(t *testing.T) {
 		t.Fatalf("public original lost its historical definition: %+v %v", retired, err)
 	}
 	for _, filter := range []string{"evolved", "superseded"} {
-		listed, total, err := s.List(filter, nil, 20, 0)
+		listed, total, err := s.List(filter, nil, nil, 20, 0)
 		if err != nil || total != 1 || len(listed) != 1 || listed[0].ID != original.ID || listed[0].Status != "evolved" {
 			t.Fatalf("filter %q returned %+v total=%d err=%v", filter, listed, total, err)
 		}

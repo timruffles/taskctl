@@ -429,7 +429,7 @@ func (s *Store) Outcome(id string) (string, error) {
 	return outcomeWith(s.DB, n)
 }
 
-func (s *Store) List(filter string, tags []string, limit, offset int) ([]Task, int, error) {
+func (s *Store) List(filter string, tags, excludedTags []string, limit, offset int) ([]Task, int, error) {
 	if limit < 0 || offset < 0 {
 		return nil, 0, failure("invalid_input", "limit and offset must not be negative")
 	}
@@ -458,13 +458,21 @@ func (s *Store) List(filter string, tags []string, limit, offset int) ([]Task, i
 	default:
 		return nil, 0, failure("invalid_input", "unknown task filter "+filter)
 	}
-	args := make([]any, 0, len(tags)+2)
+	args := make([]any, 0, len(tags)+len(excludedTags)+2)
 	for _, tag := range tags {
 		tag, err := validateLabel(tag, "tag")
 		if err != nil {
 			return nil, 0, err
 		}
 		conditions = append(conditions, "EXISTS(SELECT 1 FROM tags tg WHERE tg.task_id=t.id AND tg.tag=?)")
+		args = append(args, tag)
+	}
+	for _, tag := range excludedTags {
+		tag, err := validateLabel(tag, "exclude-tag")
+		if err != nil {
+			return nil, 0, err
+		}
+		conditions = append(conditions, "NOT EXISTS(SELECT 1 FROM tags tg WHERE tg.task_id=t.id AND tg.tag=?)")
 		args = append(args, tag)
 	}
 	query := "WITH filtered AS (SELECT t.id FROM tasks t WHERE " + strings.Join(conditions, " AND ") + `),

@@ -81,7 +81,7 @@ func TestSQLiteRoundTripAndRestoreFencing(t *testing.T) {
 	if task.OriginID != original.ID || !reflect.DeepEqual(task.Tags, []string{"v1"}) || task.Metadata["worktree"] != "/repo/worktree" {
 		t.Fatalf("lost lineage or context: %+v", task)
 	}
-	available, total, err := restored.List("available", nil, 20, 0)
+	available, total, err := restored.List("available", nil, nil, 20, 0)
 	if err != nil || total != 1 || available[0].ID != task.ID {
 		t.Fatalf("availability: %+v %d %v", available, total, err)
 	}

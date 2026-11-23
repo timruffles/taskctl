@@ -11,6 +11,34 @@ import (
 	"time"
 )
 
+func TestTaskListExcludesTagsBeforePagination(t *testing.T) {
+	f := newFixture(t)
+	f.create("human review", "--tag", "queue", "--tag", "human")
+	first := f.create("first agent task", "--tag", "queue")
+	f.create("epic", "--tag", "queue", "--tag", "epic")
+	second := f.create("second agent task", "--tag", "queue")
+	f.create("other work")
+
+	for _, view := range []string{"available", "list"} {
+		t.Run(view, func(t *testing.T) {
+			for offset, want := range []string{first.ID, second.ID} {
+				var page struct {
+					Tasks      []task `json:"tasks"`
+					Total      int    `json:"total"`
+					Omitted    int    `json:"omitted"`
+					NextOffset int    `json:"next_offset"`
+				}
+				f.read(f.must("tasks", view, "--tag", "queue", "--exclude-tag", "human",
+					"--exclude-tag", "epic", "--limit", "1", "--offset", fmt.Sprint(offset), "--json"), &page)
+				if len(page.Tasks) != 1 || page.Tasks[0].ID != want ||
+					page.Total != 2 || page.Omitted != 1-offset || page.NextOffset != offset+1 {
+					t.Fatalf("offset %d: expected task %s and pagination across two matches, got %+v", offset, want, page)
+				}
+			}
+		})
+	}
+}
+
 func TestIndependentProcessesClaimExactlyOnce(t *testing.T) {
 	f := newFixture(t)
 	created := f.create("one contested assignment")

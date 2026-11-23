@@ -25,7 +25,7 @@ projects create --name NAME [--path DIR]
 projects attach --project ID --path DIR
 projects show [--project ID]
 tasks create --title TITLE --brief TEXT [--tag TAG] [--prerequisite T1] [--request-id KEY]
-tasks available | in-progress | blocked | list [--tag TAG] [--limit N] [--offset N]
+tasks available | in-progress | blocked | list [--tag TAG] [--exclude-tag TAG] [--limit N] [--offset N]
 tasks show T1
 tasks history T1 [--limit N] [--offset N]
 tasks claim T1 --session SESSION

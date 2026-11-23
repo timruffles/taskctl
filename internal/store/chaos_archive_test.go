@@ -132,7 +132,7 @@ func TestChaosArchiveStorageFaultsRemainOperational(t *testing.T) {
 	if err = target.Restore(path); ErrorCode(err) != "storage_full" {
 		t.Fatalf("quota failure mislabeled: %v", err)
 	}
-	_, count, err := target.List("all", nil, 20, 0)
+	_, count, err := target.List("all", nil, nil, 20, 0)
 	if err != nil || count != 0 {
 		t.Fatalf("quota failure left partial restore: %d %v", count, err)
 	}

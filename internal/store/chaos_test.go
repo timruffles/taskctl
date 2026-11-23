@@ -179,7 +179,7 @@ func chaosCheckModel(t *testing.T, s *Store, m chaosModel, frozen map[string]Tas
 			t.Fatalf("seed=%d step=%d outcome %s=%q want=%q err=%v", seed, step, id, outcome, m.outcome(id), err)
 		}
 	}
-	available, total, err := s.List("available", nil, 200, 0)
+	available, total, err := s.List("available", nil, nil, 200, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

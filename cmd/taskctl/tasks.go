@@ -453,7 +453,7 @@ func (a *app) printNextPage(more bool, offset int) {
 }
 
 func (a *app) listTasks(op string) error {
-	if err := a.o.allow("tag", "limit", "offset", "status"); err != nil {
+	if err := a.o.allow("tag", "exclude-tag", "limit", "offset", "status"); err != nil {
 		return err
 	}
 	if err := a.o.noID(); err != nil {
@@ -482,7 +482,7 @@ func (a *app) listTasks(op string) error {
 	} else if a.o.has("status") {
 		return usage("--status is only supported by tasks list")
 	}
-	items, total, err := a.s.List(filter, a.o.values["tag"], int(limit), int(offset))
+	items, total, err := a.s.List(filter, a.o.values["tag"], a.o.values["exclude-tag"], int(limit), int(offset))
 	if err != nil {
 		return err
 	}

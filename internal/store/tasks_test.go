@@ -316,7 +316,7 @@ func TestCoreEvolveFailureRollsBackTasksEventsAndOwnership(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(a, after) {
 				t.Fatalf("failed evolution changed original: %+v, %v", after, err)
 			}
-			_, total, err := s.List("all", nil, 20, 0)
+			_, total, err := s.List("all", nil, nil, 20, 0)
 			if err != nil || total != 2 || coreEventCount(t, s) != before {
 				t.Fatalf("failed evolution leaked tasks/events: total=%d err=%v", total, err)
 			}
@@ -421,7 +421,7 @@ func TestCoreListFiltersPaginationAndProjection(t *testing.T) {
 	}{
 		{"available", []string{a.ID}}, {"blocked", []string{b.ID}}, {"in_progress", []string{c.ID}}, {"current", []string{a.ID, b.ID, c.ID}},
 	} {
-		items, total, err := s.List(test.filter, nil, 20, 0)
+		items, total, err := s.List(test.filter, nil, nil, 20, 0)
 		if err != nil || total != len(test.ids) || len(items) != len(test.ids) {
 			t.Fatalf("list %s: %v total=%d err=%v", test.filter, items, total, err)
 		}
@@ -431,11 +431,11 @@ func TestCoreListFiltersPaginationAndProjection(t *testing.T) {
 			}
 		}
 	}
-	items, total, err := s.List("current", []string{"x", "y"}, 1, 1)
+	items, total, err := s.List("current", []string{"x", "y"}, nil, 1, 1)
 	if err != nil || total != 2 || len(items) != 1 || items[0].ID != c.ID {
 		t.Fatalf("AND tags/pagination = %+v total=%d err=%v", items, total, err)
 	}
-	items, total, err = s.List("all", nil, 20, 99)
+	items, total, err = s.List("all", nil, nil, 20, 99)
 	if err != nil || total != 3 || len(items) != 0 {
 		t.Fatalf("empty page lost total: %+v total=%d err=%v", items, total, err)
 	}
@@ -530,7 +530,7 @@ func TestCoreAvailabilityWaitsForEveryReplacementBranch(t *testing.T) {
 	if err != nil || len(delivery.Events) != 1 || delivery.Events[0].Kind != "available" || delivery.Events[0].TaskID != b.ID {
 		t.Fatalf("all-branches availability missing: %+v %v", delivery, err)
 	}
-	items, total, err := s.List("available", nil, 20, 0)
+	items, total, err := s.List("available", nil, nil, 20, 0)
 	if err != nil || total != 1 || len(items) != 1 || items[0].ID != b.ID {
 		t.Fatalf("list disagrees with availability event: %+v total=%d err=%v", items, total, err)
 	}

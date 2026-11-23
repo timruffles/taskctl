@@ -13,7 +13,7 @@ type options struct {
 }
 
 var booleans = map[string]bool{"json": true, "help": true, "once": true, "resume": true, "codex": true, "all": true, "dry-run": true}
-var repeated = map[string]bool{"tag": true, "metadata": true, "prerequisite": true}
+var repeated = map[string]bool{"tag": true, "exclude-tag": true, "metadata": true, "prerequisite": true}
 
 func parse(args []string) (options, error) {
 	o := options{values: map[string][]string{}}

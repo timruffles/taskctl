@@ -57,7 +57,7 @@ func TestCoreDeepCompletionNotifiesEveryAncestorDependentOnce(t *testing.T) {
 			t.Fatalf("availability events for %s = %d, %v", task.ID, count, err)
 		}
 	}
-	items, total, err := s.List("available", nil, 20, 0)
+	items, total, err := s.List("available", nil, nil, 20, 0)
 	if err != nil || total != 3 || len(items) != 3 {
 		t.Fatalf("available after completion: %v total=%d error=%v", items, total, err)
 	}
@@ -82,7 +82,7 @@ func TestCoreAvailabilityTreatsEmptyEvolvedAsPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	dependent := mustCreateTask(t, s, CreateSpec{Title: "Wait for evidence of completion", Prerequisites: []string{original.ID}})
-	items, total, err := s.List("blocked", nil, 20, 0)
+	items, total, err := s.List("blocked", nil, nil, 20, 0)
 	if err != nil || total != 1 || len(items) != 1 || items[0].ID != dependent.ID {
 		t.Fatalf("empty superseded task unblocked dependent: %v total=%d error=%v", items, total, err)
 	}

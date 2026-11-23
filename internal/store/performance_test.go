@@ -78,8 +78,8 @@ func BenchmarkStoreScale(b *testing.B) {
 					fn   func() error
 				}{
 					{"Get", func() error { _, err := s.Get("T6"); return err }},
-					{"ListAvailable", func() error { _, _, err := s.List("available", nil, 20, 0); return err }},
-					{"ListInProgress", func() error { _, _, err := s.List("in-progress", nil, 20, 0); return err }},
+					{"ListAvailable", func() error { _, _, err := s.List("available", nil, nil, 20, 0); return err }},
+					{"ListInProgress", func() error { _, _, err := s.List("in-progress", nil, nil, 20, 0); return err }},
 					{"Snapshot", func() error { _, err := s.Snapshot("T6"); return err }},
 					{"Outcome", func() error { _, err := s.Outcome("T6"); return err }},
 					{"QuietOffer", func() error { _, err := s.Offer(sub, "bench", 5, time.Minute); return err }},
