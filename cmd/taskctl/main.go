@@ -15,7 +15,7 @@ import (
 	"taskctl/internal/store"
 )
 
-var version = "0.4.0"
+var version = "0.5.3"
 var help = "taskctl " + version + ` — local task tracking
 
 Select a project with --project ID, TASKCTL_PROJECT, or a .taskctl.json file.
@@ -69,7 +69,10 @@ Exit codes: 0 success, 1 other failure, 2 usage, 3 conflict, 4 cancelled, 5 time
 Evolve files contain {"summary":"...","replacements":[{"key":"a","title":"...","brief":"..."}],"continue_with":"a"}.
 Evolve retires the original and creates new task IDs; edit keeps the same ID.
 Only the current claim can evolve in-progress work. continue_with returns a fresh claim.
-Replacement prerequisites may refer to new siblings as @key. Repeated --tag filters mean AND.
+Replacement prerequisites may refer to new siblings as @key.
+Use evolve to split a task; watch the original for the combined outcome.
+For standing epics, share a tag and list members with --tag GROUP --exclude-tag epic.
+Repeated --tag filters mean AND.
 Scratch is disposable. Put important work in the repository and reference it in a task.
 `
 

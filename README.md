@@ -133,6 +133,18 @@ taskctl tasks list --status all --where '"beads_id" in metadata && metadata["bea
 
 Expressions can inspect briefs and metadata while the list output stays compact. Progress note bodies are loaded separately with `notes read`.
 
+## Split work or group an epic
+
+Use [`tasks evolve`](#evolve-a-task-as-the-remaining-work-changes) to split one existing task into independently claimable replacements. The original stays in history, and `tasks watch ORIGINAL_ID --once` reports the outcome across those replacements.
+
+For a standing epic, tag the umbrella `epic` and give the umbrella and each member a shared tag such as `planet-globes`. List the members with:
+
+```sh
+taskctl tasks list --tag planet-globes --exclude-tag epic
+```
+
+Add `--status all` to include finished work. The group has no automatic completion rollup. Add a prerequisite when a task must wait for another task to succeed.
+
 ## Keep progress and task definitions current
 
 Record a checkpoint when something meaningful changes:
@@ -330,4 +342,4 @@ Push a version tag such as `v0.5.1`. CI runs the tests before publishing all fou
 
 ## License
 
-Copyright © 2026 Tim Ruffles. taskctl is licensed under the [GNU Affero General Public License, version 3 only](LICENSE) (`AGPL-3.0-only`). Dependencies retain their own licenses. Binary archives include their third-party notices.
+Copyright © 2026 Tim Ruffles. taskctl is licensed under the [MIT License](LICENSE). Dependencies retain their own licenses. Binary archives include their third-party notices.

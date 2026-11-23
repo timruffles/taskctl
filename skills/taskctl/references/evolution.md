@@ -2,6 +2,8 @@
 
 Evolve a pending or in-progress task when substantial work is done or its remaining scope needs a new definition, including newly discovered necessary work. The old definition becomes immutable with status `evolved`; new task IDs become the current work. Use `edit` for a correction that keeps the same scope and ID, `progress` for a checkpoint, and `complete` when no work remains.
 
+Use this operation to split an existing task into independently claimable pieces. Omit `continue_with` if all ready pieces should go back to the agent queue. To add work under a standing umbrella, use [an epic tag and a shared tag](coordination.md#split-a-task-or-group-related-work).
+
 ## Preserve the useful context
 
 Read the current task, including its revision, before preparing the replacement:

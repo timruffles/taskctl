@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.3 — 2026-11-23
+
+- Document splitting tasks with evolution, tracking their combined outcome, and grouping ongoing epics with shared tags. Add the distinction to CLI help and the taskctl skill.
+
 ## 0.4.0 — 2026-11-22
 
 - Rename `tasks supersede` to `tasks evolve`; task statuses and event kinds are reported as `evolved`. Existing command and status-filter spellings remain accepted as input aliases. Plan fields and operation semantics are unchanged.

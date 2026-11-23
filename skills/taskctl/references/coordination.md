@@ -6,6 +6,11 @@ Run `taskctl projects show --json`. Project selection is `--project ID`, then `T
 
 For new work, use `projects create --name NAME --path DIR`. Attach existing worktrees to that same project with `projects attach --project ID --path DIR`.
 
+## Split a task or group related work
+
+- If one task should become several tasks with a shared completion outcome, use [evolution](evolution.md). The original enters history and its outcome follows the replacements.
+- For an ongoing epic, put `epic` and a shared tag such as `planet-globes` on the umbrella task. Give each member `planet-globes`. List members with `taskctl tasks list --tag planet-globes --exclude-tag epic`. Add `--status all` to include finished work. Group membership has no automatic completion rollup. Use prerequisites only where one task cannot start until another succeeds.
+
 ## Define and assign work
 
 Inspect the current tasks before adding overlapping work; use the [inspection reference](inspection.md) for filters and pagination. A brief states a concrete remaining outcome, acceptance evidence and relevant repository paths. Use prerequisites for ordering, tags for discovery, and metadata for worktree or agent-session references. Give retries of the same creation a stable `--request-id` and identical input. Use `taskctl --help` for exact flags.
