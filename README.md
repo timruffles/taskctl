@@ -117,6 +117,20 @@ taskctl tasks show T1 --json
 
 Repeated tags mean AND: `--tag import --tag tests` selects tasks carrying both tags. Repeat `--exclude-tag` to omit tasks carrying any excluded tag. For example, `taskctl tasks available --exclude-tag human --exclude-tag epic` shows the agent queue. Tag filters apply before pagination. Add a tag with `tasks tag ID --tag TAG`, supplying `--claim` if the task is in progress.
 
+Use `--where` on `tasks list`, `available`, `blocked` or `in-progress` for a [CEL](https://cel.dev/) expression that returns a boolean. Status and tag flags narrow the candidates first. CEL filters those candidates before pagination, including the reported total.
+
+```sh
+taskctl tasks available --where 'search(title, "advisor") && !("human" in tags)'
+taskctl tasks list --status all --where '"beads_id" in metadata && metadata["beads_id"] == "asc-42"'
+```
+
+- `id`, `title`, `brief`, `status`, `owner`, `origin_id` and `parent_id` are strings. A missing owner or parent is an empty string.
+- `tags` and `prerequisites` are lists of strings. Prerequisites are task IDs.
+- `metadata` maps string keys to string values. Use `"key" in metadata` before reading an optional key.
+- `search(text, query)` matches a case-insensitive literal substring. It accepts either `title` or `brief`, or any other string expression.
+
+Expressions can inspect briefs and metadata while the list output stays compact. Progress note bodies are loaded separately with `notes read`.
+
 ## Keep progress and task definitions current
 
 Record a checkpoint when something meaningful changes:

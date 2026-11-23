@@ -11,6 +11,38 @@ import (
 	"time"
 )
 
+func TestTaskListFiltersWithCELBeforePagination(t *testing.T) {
+	f := newFixture(t)
+	f.create("Advisor behavior review", "--tag", "human")
+	first := f.create("Advisor layout", "--metadata", "beads_id=asc-42")
+	second := f.create("Advisor behavior")
+	f.create("Planet layout")
+	f.create("Advisor behavior follow-up", "--prerequisite", first.ID)
+
+	const filter = `search(title, "ADVISOR") && (metadata.exists(k, k == "beads_id" && metadata[k] == "asc-42") || search(brief, "behavior"))`
+	for offset, want := range []string{first.ID, second.ID} {
+		var page struct {
+			Tasks []task `json:"tasks"`
+			Total int    `json:"total"`
+		}
+		f.read(f.must("tasks", "available", "--where", filter, "--exclude-tag", "human",
+			"--limit", "1", "--offset", fmt.Sprint(offset), "--json"), &page)
+		if len(page.Tasks) != 1 || page.Tasks[0].ID != want || page.Total != 2 {
+			t.Fatalf("offset %d: expected %s and two matches, got %+v", offset, want, page)
+		}
+	}
+}
+
+func TestTaskListRejectsInvalidCEL(t *testing.T) {
+	f := newFixture(t)
+	for _, expression := range []string{`unknown == "x"`, `title`} {
+		result := f.run("", "tasks", "list", "--where", expression, "--json")
+		if result.code != 2 || result.stdout != "" || !strings.Contains(result.stderr, "--where") {
+			t.Fatalf("expected usage error for %q, got %+v", expression, result)
+		}
+	}
+}
+
 func TestTaskListExcludesTagsBeforePagination(t *testing.T) {
 	f := newFixture(t)
 	f.create("human review", "--tag", "queue", "--tag", "human")

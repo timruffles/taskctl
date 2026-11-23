@@ -16,6 +16,8 @@ Use the assigned project ID explicitly when the current directory may select ano
 
 Repeat `--tag` to require all listed tags. Repeat `--exclude-tag` to omit tasks carrying any of those tags. Default lists contain pending and in-progress definitions. Report evolved originals as history, not additional remaining work. `origin_id` identifies the top-level original; `parent_id` identifies the immediate predecessor.
 
+Use `--where 'search(title, "query")'` for case-insensitive task search. Search `brief` for task text, or use `--where '"beads_id" in metadata && metadata["beads_id"] == "asc-42"'` for an external ID when that metadata has been set. Use `tasks list --status all` to search completed work as well.
+
 Follow `omitted` and `next_offset` before making claims about an entire task list. History, subscription and scratch pages use `more` and `next_offset`; notes use `more` and `next_before`, passed as `--before`. Consult history for a specific unanswered question. Task views include the latest progress title; note lists contain titles and metadata only. `notes read` streams one Markdown body and does not accept `--json`.
 
 List first, then load individual details that affect the answer. Activity is not evidence of accomplishment: inspect progress or verification when assessing a possible stall. For ownership recovery, read [recovery](recovery.md).

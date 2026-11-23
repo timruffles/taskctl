@@ -430,6 +430,11 @@ func (s *Store) Outcome(id string) (string, error) {
 }
 
 func (s *Store) List(filter string, tags, excludedTags []string, limit, offset int) ([]Task, int, error) {
+	return s.ListMatching(filter, tags, excludedTags, limit, offset, nil)
+}
+
+// ListMatching evaluates match on each candidate in the same read snapshot.
+func (s *Store) ListMatching(filter string, tags, excludedTags []string, limit, offset int, match func(Task) (bool, error)) ([]Task, int, error) {
 	if limit < 0 || offset < 0 {
 		return nil, 0, failure("invalid_input", "limit and offset must not be negative")
 	}
@@ -475,6 +480,9 @@ func (s *Store) List(filter string, tags, excludedTags []string, limit, offset i
 		conditions = append(conditions, "NOT EXISTS(SELECT 1 FROM tags tg WHERE tg.task_id=t.id AND tg.tag=?)")
 		args = append(args, tag)
 	}
+	if match != nil {
+		return s.listMatchingTasks(strings.Join(conditions, " AND "), args, limit, offset, match)
+	}
 	query := "WITH filtered AS (SELECT t.id FROM tasks t WHERE " + strings.Join(conditions, " AND ") + `),
  totals AS (SELECT COUNT(*) AS total FROM filtered),
  page AS (SELECT id FROM filtered ORDER BY id LIMIT ? OFFSET ?)
@@ -494,6 +502,34 @@ func (s *Store) List(filter string, tags, excludedTags []string, limit, offset i
 		}
 		if t.ID != "" {
 			items = append(items, t)
+		}
+	}
+	return items, total, rows.Err()
+}
+
+func (s *Store) listMatchingTasks(where string, args []any, limit, offset int, match func(Task) (bool, error)) ([]Task, int, error) {
+	rows, err := s.DB.Query("SELECT "+taskProjection+" FROM tasks t WHERE "+where+" ORDER BY t.id", args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]Task, 0, limit)
+	total := 0
+	for rows.Next() {
+		task, err := scanTask(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		matched, err := match(task)
+		if err != nil {
+			return nil, 0, err
+		}
+		if matched {
+			if total >= offset && len(items) < limit {
+				items = append(items, task)
+			}
+			total++
 		}
 	}
 	return items, total, rows.Err()
