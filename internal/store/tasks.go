@@ -741,6 +741,28 @@ func (s *Store) Cancel(id, claim, reason string) (Task, error) {
 	})
 }
 
+func (s *Store) Reopen(id, reason string) (Task, error) {
+	return s.taskWrite(id, func(tx *sql.Tx, n int64, t Task) error {
+		if t.Status != "completed" && t.Status != "cancelled" {
+			return failure("conflict", "task "+id+" is "+t.Status+"; reopen requires completed or cancelled")
+		}
+		now := timestamp(s.Now())
+		if _, err := tx.Exec(`UPDATE tasks SET status='pending',result='',revision=revision+1,updated_at=?,last_activity_at='' WHERE id=?`, now, n); err != nil {
+			return err
+		}
+		if strings.TrimSpace(reason) == "" {
+			reason = "Task reopened"
+		}
+		if _, err := s.emit(tx, n, "reopened", reason, map[string]any{"previous_status": t.Status}); err != nil {
+			return err
+		}
+		if err := s.refreshScratch(tx, n); err != nil {
+			return err
+		}
+		return s.emitAvailableTasks(tx, "t.id=?", n)
+	})
+}
+
 func (s *Store) Edit(id, claim string, revision int64, title, brief *string) (Task, error) {
 	if title == nil && brief == nil {
 		return Task{}, failure("invalid_input", "edit requires a title or brief")

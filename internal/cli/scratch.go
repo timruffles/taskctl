@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"fmt"
@@ -12,14 +12,8 @@ import (
 func (a *app) scratchPath(id string) string { return filepath.Join(a.p.Scratch, id) }
 func (a *app) scratch() error {
 	m := scratchpkg.Manager{Store: a.s, Root: a.p.Scratch}
-	op := a.o.pos[1]
+	op := a.command
 	if op == "cleanup" {
-		if err := a.o.allow("grace", "dry-run", "limit"); err != nil {
-			return err
-		}
-		if err := a.o.noID(); err != nil {
-			return err
-		}
 		def, _ := time.ParseDuration(a.cfg.ScratchGrace)
 		grace, err := a.o.duration("grace", def)
 		if err != nil {
@@ -45,24 +39,15 @@ func (a *app) scratch() error {
 		}
 		return nil
 	}
-	id, err := a.o.position(2)
-	if err != nil {
-		return err
-	}
+	id := a.args[0]
 	switch op {
 	case "create":
-		if err = a.o.allow("claim"); err != nil {
-			return err
-		}
 		r, err := m.Create(id, a.o.get("claim"))
 		if err != nil {
 			return err
 		}
 		return a.ok(r, r.Path+"\n"+r.Guidance)
 	case "list":
-		if err = a.o.allow("limit", "offset"); err != nil {
-			return err
-		}
 		limit, offset, err := a.pageOptions()
 		if err != nil {
 			return err
@@ -85,9 +70,6 @@ func (a *app) scratch() error {
 		a.printNextPage(more, offset+len(rows))
 		return nil
 	case "attach":
-		if err = a.o.allow("area", "claim"); err != nil {
-			return err
-		}
 		area, err := a.o.require("area")
 		if err != nil {
 			return err

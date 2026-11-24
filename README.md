@@ -220,6 +220,16 @@ For a small correction, use `tasks edit ID --revision REVISION --brief-file FILE
 taskctl tasks complete TASK_ID --claim CLAIM_TOKEN --summary 'Implemented row-numbered errors; parser tests pass.'
 ```
 
+If a completed or cancelled task needs more work, reopen it under the same ID:
+
+```sh
+taskctl tasks reopen TASK_ID --reason 'Verification found another case to fix.'
+```
+
+Reopening clears the current result and returns the task to pending. The previous result remains in the event stream. The task can be claimed when its prerequisites are complete, and pending tasks that depend on it wait for it to complete again.
+
+Use `taskctl tasks --help` to browse task commands or `taskctl tasks reopen --help` to see flags for a specific command.
+
 ### Recover interrupted work deliberately
 
 Inspect `tasks in-progress`, then `tasks show ID`. If a worker is handing off unfinished work, record a checkpoint and release its claim:

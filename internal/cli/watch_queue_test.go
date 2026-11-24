@@ -1,8 +1,9 @@
-package main
+package cli
 
 import (
 	"bytes"
 	"errors"
+
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,14 +53,15 @@ func fakeQueueExecutable(t *testing.T, exit string) (string, string) {
 
 func runQueueWatchOnce(t *testing.T, s *store.Store, sub, session, executable string) (string, error) {
 	t.Helper()
-	o, err := parse([]string{"subscriptions", "watch", sub, "--session", session, "--codex", "--codex-executable", executable,
-		"--once", "--limit", "2", "--timeout", "2s", "--lease", "1m", "--json"})
-	if err != nil {
-		t.Fatal(err)
-	}
 	var output bytes.Buffer
-	a := app{o: o, s: s, p: project.Project{ID: s.ProjectID}, cfg: project.Config{Inactivity: "30m"}, out: &output}
-	err = a.watchSubscription(sub, session)
+	a := app{
+		o: options{values: map[string][]string{
+			"codex": {"true"}, "codex-executable": {executable}, "once": {"true"},
+			"limit": {"2"}, "timeout": {"2s"}, "lease": {"1m"}, "json": {"true"},
+		}},
+		s: s, p: project.Project{ID: s.ProjectID}, cfg: project.Config{Inactivity: "30m"}, out: &output,
+	}
+	err := a.watchSubscription(sub, session)
 	return output.String(), err
 }
 

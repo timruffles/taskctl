@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"fmt"
@@ -9,9 +9,6 @@ import (
 )
 
 func (a *app) progress(id string) error {
-	if err := a.o.allow("claim", "title", "body-file", "text", "text-file"); err != nil {
-		return err
-	}
 	claim, err := a.o.require("claim")
 	if err != nil {
 		return err
@@ -60,16 +57,10 @@ func (a *app) progress(id string) error {
 }
 
 func (a *app) notes() error {
-	op := a.o.pos[1]
-	id, err := a.o.position(2)
-	if err != nil {
-		return err
-	}
+	op := a.command
+	id := a.args[0]
 	switch op {
 	case "list":
-		if err := a.o.allow("limit", "before"); err != nil {
-			return err
-		}
 		limit, err := a.o.number("limit", int64(a.cfg.ListLimit))
 		if err != nil {
 			return err
@@ -103,26 +94,17 @@ func (a *app) notes() error {
 		}
 		return nil
 	case "show":
-		if err := a.o.allow(); err != nil {
-			return err
-		}
 		note, err := a.s.GetNote(id)
 		if err != nil {
 			return err
 		}
 		return a.noteResult(note)
 	case "read":
-		if err := a.o.allow(); err != nil {
-			return err
-		}
 		if a.o.yes("json") {
 			return usage("notes read streams Markdown; omit --json, or use notes show --json for metadata")
 		}
 		return a.s.WriteNoteBody(id, a.out)
 	case "delete":
-		if err := a.o.allow("claim"); err != nil {
-			return err
-		}
 		if err := a.s.DeleteNote(id, a.o.get("claim")); err != nil {
 			return err
 		}

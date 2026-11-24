@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -66,13 +66,7 @@ func terminal(outcome string) error {
 }
 func isTerminal(outcome string) bool { return outcome == "completed" || outcome == "cancelled" }
 func (a *app) watch(waitOnly bool) error {
-	if err := a.o.allow("after", "timeout", "interval", "exec", "once", "inactivity"); err != nil {
-		return err
-	}
-	id, err := a.o.position(2)
-	if err != nil {
-		return err
-	}
+	id := a.args[0]
 	if waitOnly && (a.o.has("after") || a.o.has("exec") || a.o.has("once")) {
 		return usage("wait does not accept --after, --exec or --once")
 	}
@@ -173,22 +167,13 @@ func (a *app) watch(waitOnly bool) error {
 	}
 }
 func (a *app) subscriptions() error {
-	if len(a.o.pos) < 2 {
-		return usage("subscriptions requires pending, acknowledge or watch")
-	}
-	id, err := a.o.position(2)
-	if err != nil {
-		return err
-	}
+	id := a.args[0]
 	session, err := a.o.require("session")
 	if err != nil {
 		return err
 	}
-	switch a.o.pos[1] {
+	switch a.command {
 	case "pending":
-		if err = a.o.allow("session", "limit", "lease"); err != nil {
-			return err
-		}
 		limit, err := a.o.number("limit", 20)
 		if err != nil {
 			return err
@@ -209,9 +194,6 @@ func (a *app) subscriptions() error {
 		}
 		return a.printDelivery(d)
 	case "acknowledge":
-		if err = a.o.allow("session", "token", "through"); err != nil {
-			return err
-		}
 		token, err := a.o.require("token")
 		if err != nil {
 			return err
@@ -230,7 +212,7 @@ func (a *app) subscriptions() error {
 	case "watch":
 		return a.watchSubscription(id, session)
 	}
-	return usage("unknown subscriptions command " + a.o.pos[1])
+	return usage("unknown subscriptions command " + a.command)
 }
 func (a *app) printDelivery(d store.Delivery) error {
 	if d.Snapshot != nil {
@@ -271,9 +253,6 @@ func actionable(d store.Delivery) bool {
 	return false
 }
 func (a *app) watchSubscription(id, session string) error {
-	if err := a.o.allow("session", "exec", "codex", "codex-executable", "once", "timeout", "interval", "limit", "lease", "inactivity"); err != nil {
-		return err
-	}
 	if a.o.has("exec") && a.o.yes("codex") {
 		return usage("use either --exec or --codex")
 	}

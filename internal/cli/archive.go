@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"fmt"
@@ -10,12 +10,6 @@ import (
 )
 
 func (a *app) backup() error {
-	if len(a.o.pos) != 1 {
-		return usage("backup takes no positional arguments")
-	}
-	if err := a.o.allow("file", "directory"); err != nil {
-		return err
-	}
 	if a.o.has("file") == a.o.has("directory") {
 		return usage("backup requires exactly one of --file or --directory")
 	}
@@ -46,12 +40,6 @@ func (a *app) backup() error {
 }
 
 func (a *app) restore() error {
-	if len(a.o.pos) != 1 {
-		return usage("restore takes no positional arguments")
-	}
-	if err := a.o.allow("file", "directory", "name", "path"); err != nil {
-		return err
-	}
 	if a.o.has("project") {
 		return usage("restore creates a new project; omit --project")
 	}

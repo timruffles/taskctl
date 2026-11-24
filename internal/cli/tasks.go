@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"encoding/json"
@@ -35,17 +35,11 @@ func (a *app) taskResult(t store.Task) error {
 	return nil
 }
 func (a *app) tasks() error {
-	op := a.o.pos[1]
+	op := a.command
 	switch op {
 	case "available", "in-progress", "blocked", "list":
 		return a.listTasks(op)
 	case "create":
-		if err := a.o.allow("title", "brief", "brief-file", "tag", "metadata", "prerequisite", "request-id"); err != nil {
-			return err
-		}
-		if err := a.o.noID(); err != nil {
-			return err
-		}
 		if a.o.has("request-id") && a.o.get("request-id") == "" {
 			return usage("--request-id must not be empty")
 		}
@@ -74,12 +68,6 @@ func (a *app) tasks() error {
 		}
 		return a.taskResult(t)
 	case "subscriptions":
-		if err := a.o.allow("session", "limit", "offset"); err != nil {
-			return err
-		}
-		if err := a.o.noID(); err != nil {
-			return err
-		}
 		limit, offset, err := a.pageOptions()
 		if err != nil {
 			return err
@@ -99,16 +87,11 @@ func (a *app) tasks() error {
 	case "watch", "wait":
 		return a.watch(op == "wait")
 	}
-	id, err := a.o.position(2)
-	if err != nil {
-		return err
-	}
+	id := a.args[0]
+	var err error
 	claim := a.o.get("claim")
 	switch op {
 	case "show":
-		if err = a.o.allow(); err != nil {
-			return err
-		}
 		t, e := a.s.Get(id)
 		if e != nil {
 			return e
@@ -169,9 +152,6 @@ func (a *app) tasks() error {
 		}
 		return nil
 	case "history":
-		if err = a.o.allow("limit", "offset"); err != nil {
-			return err
-		}
 		limit, offset, e := a.pageOptions()
 		if e != nil {
 			return e
@@ -189,9 +169,6 @@ func (a *app) tasks() error {
 		a.printNextPage(more, offset+len(items))
 		return nil
 	case "claim":
-		if err = a.o.allow("session"); err != nil {
-			return err
-		}
 		session, e := a.o.require("session")
 		if e != nil {
 			return e
@@ -202,9 +179,6 @@ func (a *app) tasks() error {
 		}
 		return a.taskResult(t)
 	case "release":
-		if err = a.o.allow("claim"); err != nil {
-			return err
-		}
 		if _, err = a.o.require("claim"); err != nil {
 			return err
 		}
@@ -214,9 +188,6 @@ func (a *app) tasks() error {
 		}
 		return a.taskResult(t)
 	case "takeover":
-		if err = a.o.allow("expected-claim", "session", "reason"); err != nil {
-			return err
-		}
 		old, e := a.o.require("expected-claim")
 		if e != nil {
 			return e
@@ -237,17 +208,11 @@ func (a *app) tasks() error {
 	case "progress":
 		return a.progress(id)
 	case "heartbeat":
-		if err = a.o.allow("claim"); err != nil {
-			return err
-		}
 		if e := a.s.Heartbeat(id, claim); e != nil {
 			return e
 		}
 		return a.ok(map[string]any{"task_id": id, "recorded": true}, "")
 	case "complete":
-		if err = a.o.allow("claim", "summary", "summary-file"); err != nil {
-			return err
-		}
 		text, e := a.readText("summary")
 		if e != nil {
 			return e
@@ -258,9 +223,6 @@ func (a *app) tasks() error {
 		}
 		return a.taskResult(t)
 	case "cancel":
-		if err = a.o.allow("claim", "reason"); err != nil {
-			return err
-		}
 		reason, e := a.o.require("reason")
 		if e != nil {
 			return e
@@ -270,10 +232,13 @@ func (a *app) tasks() error {
 			return e
 		}
 		return a.taskResult(t)
-	case "edit":
-		if err = a.o.allow("claim", "revision", "title", "brief", "brief-file"); err != nil {
-			return err
+	case "reopen":
+		t, e := a.s.Reopen(id, a.o.get("reason"))
+		if e != nil {
+			return e
 		}
+		return a.taskResult(t)
+	case "edit":
 		rev, e := a.revision()
 		if e != nil {
 			return e
@@ -299,9 +264,6 @@ func (a *app) tasks() error {
 		}
 		return a.taskResult(t)
 	case "evolve", "supersede":
-		if err = a.o.allow("claim", "revision", "file"); err != nil {
-			return err
-		}
 		rev, e := a.revision()
 		if e != nil {
 			return e
@@ -325,9 +287,6 @@ func (a *app) tasks() error {
 		}
 		return nil
 	case "tag", "untag":
-		if err = a.o.allow("claim", "tag"); err != nil {
-			return err
-		}
 		if len(a.o.values["tag"]) != 1 {
 			return usage("tag/untag requires exactly one --tag")
 		}
@@ -336,9 +295,6 @@ func (a *app) tasks() error {
 		}
 		return a.ok(map[string]string{"task_id": id, "tag": a.o.get("tag"), "operation": op}, id+" "+op+" "+a.o.get("tag"))
 	case "metadata":
-		if err = a.o.allow("claim", "key", "value"); err != nil {
-			return err
-		}
 		key, e := a.o.require("key")
 		if e != nil {
 			return e
@@ -351,9 +307,6 @@ func (a *app) tasks() error {
 		}
 		return a.ok(map[string]string{"task_id": id, "key": key, "value": a.o.get("value")}, id+" metadata "+key+" set")
 	case "depend", "undepend":
-		if err = a.o.allow("claim", "prerequisite"); err != nil {
-			return err
-		}
 		if len(a.o.values["prerequisite"]) != 1 {
 			return usage("depend/undepend requires exactly one --prerequisite")
 		}
@@ -363,9 +316,6 @@ func (a *app) tasks() error {
 		}
 		return a.ok(map[string]string{"task_id": id, "prerequisite": pr, "operation": op}, id+" "+op+" "+pr)
 	case "subscribe":
-		if err = a.o.allow("session", "resume"); err != nil {
-			return err
-		}
 		session, e := a.o.require("session")
 		if e != nil {
 			return e
@@ -376,9 +326,6 @@ func (a *app) tasks() error {
 		}
 		return a.ok(sub, sub.ID+"  task="+sub.TaskID+" session="+sub.Session)
 	case "unsubscribe":
-		if err = a.o.allow("session"); err != nil {
-			return err
-		}
 		session, e := a.o.require("session")
 		if e != nil {
 			return e
@@ -453,12 +400,6 @@ func (a *app) printNextPage(more bool, offset int) {
 }
 
 func (a *app) listTasks(op string) error {
-	if err := a.o.allow("tag", "exclude-tag", "where", "limit", "offset", "status"); err != nil {
-		return err
-	}
-	if err := a.o.noID(); err != nil {
-		return err
-	}
 	limit, err := a.o.number("limit", int64(a.cfg.ListLimit))
 	if err != nil {
 		return err

@@ -84,7 +84,7 @@ func TestDetailListsReportContinuation(t *testing.T) {
 func TestSQLiteOnlyCLI(t *testing.T) {
 	f := newFixture(t)
 	created := f.create("Preserved in SQLite")
-	if result := f.run("", "export", "--json"); result.code != 2 || result.stdout != "" || !strings.Contains(result.stderr, "unknown command export") {
+	if result := f.run("", "export", "--json"); result.code != 2 || result.stdout != "" || !strings.Contains(result.stderr, "unknown command") || !strings.Contains(result.stderr, "export") {
 		t.Fatalf("removed export command: %+v", result)
 	}
 	jsonPath := filepath.Join(f.root, "old-export.json")
