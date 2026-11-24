@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0 — 2026-11-24
+
+- Add `tasks reopen` to return completed or cancelled tasks to pending under the same ID.
+- Use Cobra for command routing, flags, command-specific help and shell completion.
+
 ## 0.5.3 — 2026-11-23
 
 - Document splitting tasks with evolution, tracking their combined outcome, and grouping ongoing epics with shared tags. Add the distinction to CLI help and the taskctl skill.
