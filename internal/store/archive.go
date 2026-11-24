@@ -279,8 +279,8 @@ func openBackup(path string) (*sql.DB, *sql.Tx, string, error) {
 	if err = tx.QueryRow("SELECT value FROM store_info WHERE key='schema_version'").Scan(&version); err != nil {
 		return fail(invalidArchive(err))
 	}
-	if version != "1" && version != "2" {
-		return fail(failure("unsupported_schema", "backup schema must be version 1 or 2"))
+	if version != "1" && version != "2" && version != "3" {
+		return fail(failure("unsupported_schema", "backup schema must be version 1, 2 or 3"))
 	}
 	if err = tx.QueryRow("SELECT value FROM store_info WHERE key='project_id'").Scan(&projectID); err != nil {
 		return fail(invalidArchive(err))
@@ -412,7 +412,7 @@ func (s *Store) restoreSource(source *sql.Tx, projectID string, prepareNotes fun
 		return invalidArchive(err)
 	}
 	return s.write(func(tx *sql.Tx) error {
-		for _, table := range append(append([]string{}, archiveTables...), "create_requests", "scratch_cleanup_state", "notes") {
+		for _, table := range append(append([]string{}, archiveTables...), "create_requests", "scratch_cleanup_state", "notes", "resources", "task_resource_requirements", "resource_holds") {
 			var occupied bool
 			if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM " + table + ")").Scan(&occupied); err != nil {
 				return err
@@ -429,7 +429,14 @@ func (s *Store) restoreSource(source *sql.Tx, projectID string, prepareNotes fun
 				return err
 			}
 		}
-		if version == "2" {
+		if version == "3" {
+			for _, table := range []string{"resources", "task_resource_requirements"} {
+				if err := restoreTable(source, tx, table); err != nil {
+					return err
+				}
+			}
+		}
+		if version != "1" {
 			if err := restoreTable(source, tx, "notes"); err != nil {
 				return err
 			}

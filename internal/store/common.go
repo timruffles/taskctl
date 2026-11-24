@@ -116,7 +116,7 @@ func openStore(path, projectID string, create bool) (*Store, error) {
 					return err
 				}
 			}
-			if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS store_info(key TEXT PRIMARY KEY,value TEXT NOT NULL);` + taskSchema + notificationSchema + scratchSchema + noteSchema); err != nil {
+			if _, err := tx.Exec(`CREATE TABLE IF NOT EXISTS store_info(key TEXT PRIMARY KEY,value TEXT NOT NULL);` + taskSchema + notificationSchema + scratchSchema + noteSchema + resourceSchema); err != nil {
 				return err
 			}
 			if err := ensureHookIndex(tx); err != nil {
@@ -125,7 +125,7 @@ func openStore(path, projectID string, create bool) (*Store, error) {
 			var existing string
 			err := tx.QueryRow("SELECT value FROM store_info WHERE key='project_id'").Scan(&existing)
 			if errors.Is(err, sql.ErrNoRows) {
-				_, err = tx.Exec("INSERT INTO store_info(key,value) VALUES('project_id',?),('schema_version','2')", projectID)
+				_, err = tx.Exec("INSERT INTO store_info(key,value) VALUES('project_id',?),('schema_version','3')", projectID)
 				return err
 			}
 			if err != nil {
@@ -138,17 +138,16 @@ func openStore(path, projectID string, create bool) (*Store, error) {
 			if err = tx.QueryRow("SELECT value FROM store_info WHERE key='schema_version'").Scan(&version); err != nil {
 				return err
 			}
-			if version != "1" && version != "2" {
-				return failure("unsupported_schema", "expected schema version 1 or 2, found "+version)
+			if version != "1" && version != "2" && version != "3" {
+				return failure("unsupported_schema", "expected schema version 1, 2 or 3, found "+version)
 			}
 			if version == "1" {
 				if err := s.migrateNotesTx(tx); err != nil {
 					return err
 				}
-				_, err = tx.Exec("UPDATE store_info SET value='2' WHERE key='schema_version'")
-				return err
 			}
-			return nil
+			_, err = tx.Exec("UPDATE store_info SET value='3' WHERE key='schema_version' AND value<>'3'")
+			return err
 		})
 		unlock()
 	}
@@ -179,10 +178,14 @@ func (s *Store) validateExisting(q Queryer) error {
 	if project.String != s.ProjectID {
 		return failure("wrong_project", "database belongs to a different project")
 	}
-	if version.String != "1" && version.String != "2" {
-		return failure("unsupported_schema", "expected schema version 1 or 2, found "+version.String)
+	if version.String != "1" && version.String != "2" && version.String != "3" {
+		return failure("unsupported_schema", "expected schema version 1, 2 or 3, found "+version.String)
 	}
-	for _, table := range archiveTables {
+	tables := append([]string{}, archiveTables...)
+	if version.String == "3" {
+		tables = append(tables, "resources", "task_resource_requirements", "resource_holds")
+	}
+	for _, table := range tables {
 		var present bool
 		if err := q.QueryRow("SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name=?)", table).Scan(&present); err != nil {
 			return classify(err)
@@ -191,7 +194,7 @@ func (s *Store) validateExisting(q Queryer) error {
 			return failure("storage_invalid", "project database is missing durable table "+table)
 		}
 	}
-	if version.String == "2" {
+	if version.String != "1" {
 		var present bool
 		if err := q.QueryRow("SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='notes')").Scan(&present); err != nil {
 			return classify(err)
@@ -209,6 +212,8 @@ func schemaCurrent(q Queryer) (bool, error) {
 		return false, err
 	}
 	err := q.QueryRow(`WITH required(type,name) AS (VALUES
+ ('table','resources'),('table','task_resource_requirements'),('table','resource_holds'),
+ ('index','resource_waiters'),('index','resource_holder'),
  ('table','create_requests'),('table','scratch_cleanup_state'),('table','notes'),
  ('index','notes_task_order'),('index','notes_task_live_order'),('index','notes_with_bodies'),
  ('index','events_hook_task_id'),
@@ -216,7 +221,7 @@ func schemaCurrent(q Queryer) (bool, error) {
  ('index','tags_lookup'),('index','prerequisites_reverse'),('index','events_task_id'),
  ('index','subscriptions_session'),('index','subscriptions_session_order'),
  ('index','scratch_refs_area_task'),('index','scratch_unreferenced')
-) SELECT (SELECT value='2' FROM store_info WHERE key='schema_version') AND NOT EXISTS(SELECT 1 FROM required r WHERE NOT EXISTS(
+) SELECT (SELECT value='3' FROM store_info WHERE key='schema_version') AND NOT EXISTS(SELECT 1 FROM required r WHERE NOT EXISTS(
  SELECT 1 FROM sqlite_schema s WHERE s.type=r.type AND s.name=r.name
  AND (r.name<>'events_hook_task_id' OR s.sql=?)))`, hookIndexSQL).Scan(&current)
 	return current, err

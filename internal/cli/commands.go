@@ -49,7 +49,7 @@ func newRoot(version string) *cobra.Command {
 
 	tasks := group(root, "tasks", "Create, update, and inspect tasks")
 	add(tasks, (*app).tasks, true,
-		commandSpec{"create", "Create a task", "title brief brief-file tag metadata prerequisite request-id", true},
+		commandSpec{"create", "Create a task", "title brief brief-file tag metadata prerequisite request-id requires-resource", true},
 		commandSpec{"available", "List tasks ready to claim", "tag exclude-tag where limit offset", false},
 		commandSpec{"in-progress", "List claimed tasks", "tag exclude-tag where limit offset", false},
 		commandSpec{"blocked", "List tasks with unmet prerequisites", "tag exclude-tag where limit offset", false},
@@ -71,6 +71,8 @@ func newRoot(version string) *cobra.Command {
 		commandSpec{"metadata TASK_ID", "Set a task metadata value", "claim key value", false},
 		commandSpec{"depend TASK_ID", "Add a prerequisite", "claim prerequisite", false},
 		commandSpec{"undepend TASK_ID", "Remove a prerequisite", "claim prerequisite", false},
+		commandSpec{"require-resource TASK_ID RESOURCE", "Require an exclusive resource at claim time", "", false},
+		commandSpec{"unrequire-resource TASK_ID RESOURCE", "Remove a pending task’s resource requirement", "", false},
 		commandSpec{"watch TASK_ID", "Stream task events", "after timeout interval exec once inactivity", false},
 		commandSpec{"wait TASK_ID", "Wait for a terminal task outcome", "timeout interval inactivity", false},
 		commandSpec{"subscribe TASK_ID", "Subscribe a session to task events", "session resume", false},
@@ -79,6 +81,13 @@ func newRoot(version string) *cobra.Command {
 	)
 	evolve, _, _ := tasks.Find([]string{"evolve"})
 	evolve.Aliases = []string{"supersede"}
+
+	resources := group(root, "resources", "Manage exclusive resources acquired by task claims")
+	add(resources, (*app).resources, true,
+		commandSpec{"create RESOURCE", "Register an exclusive resource", "", false},
+		commandSpec{"list", "List resources and their current holders", "limit offset", false},
+		commandSpec{"release RESOURCE", "Release a resource while keeping the task claim", "claim", false},
+	)
 
 	subscriptions := group(root, "subscriptions", "Read, acknowledge, and watch subscription deliveries")
 	add(subscriptions, (*app).subscriptions, true,

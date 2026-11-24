@@ -14,17 +14,16 @@ func assertEvolveStorage(t *testing.T, q Queryer, id string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var version, status string
+	var status string
 	var legacyEvents, renamedEvents int
 	if err := q.QueryRow(`SELECT
- (SELECT value FROM store_info WHERE key='schema_version'),
  (SELECT status FROM tasks WHERE id=?),
  (SELECT COUNT(*) FROM events WHERE task_id=? AND kind='superseded'),
- (SELECT COUNT(*) FROM events WHERE kind='evolved')`, n, n).Scan(&version, &status, &legacyEvents, &renamedEvents); err != nil {
+ (SELECT COUNT(*) FROM events WHERE kind='evolved')`, n, n).Scan(&status, &legacyEvents, &renamedEvents); err != nil {
 		t.Fatal(err)
 	}
-	if version != "2" || status != "superseded" || legacyEvents != 1 || renamedEvents != 0 {
-		t.Fatalf("durable compatibility changed: schema=%s status=%s legacy events=%d renamed events=%d", version, status, legacyEvents, renamedEvents)
+	if status != "superseded" || legacyEvents != 1 || renamedEvents != 0 {
+		t.Fatalf("durable compatibility changed: status=%s legacy events=%d renamed events=%d", status, legacyEvents, renamedEvents)
 	}
 }
 

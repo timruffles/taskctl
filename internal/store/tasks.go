@@ -60,29 +60,37 @@ CREATE TABLE IF NOT EXISTS create_requests (
 );
 `
 
+type ResourceBlocker struct {
+	Resource string `json:"resource"`
+	Holder   string `json:"holder"`
+}
+
 type Task struct {
-	ID             string            `json:"id"`
-	Title          string            `json:"title"`
-	Brief          string            `json:"brief"`
-	Status         string            `json:"status"`
-	OriginID       string            `json:"origin_id"`
-	ParentID       string            `json:"parent_id"`
-	Revision       int64             `json:"revision"`
-	Owner          string            `json:"owner"`
-	ClaimID        string            `json:"claim_id"`
-	Tags           []string          `json:"tags"`
-	Metadata       map[string]string `json:"metadata"`
-	Prerequisites  []string          `json:"prerequisites"`
-	Progress       string            `json:"progress"`
-	ProgressNoteID string            `json:"progress_note_id,omitempty"`
-	ProgressAt     string            `json:"progress_at,omitempty"`
-	Result         string            `json:"result"`
-	CreatedAt      string            `json:"created_at"`
-	UpdatedAt      string            `json:"updated_at"`
-	LastActivityAt string            `json:"last_activity_at"`
+	Resources        []string          `json:"requires_resources,omitempty"`
+	ResourceBlockers []ResourceBlocker `json:"resource_blockers,omitempty"`
+	ID               string            `json:"id"`
+	Title            string            `json:"title"`
+	Brief            string            `json:"brief"`
+	Status           string            `json:"status"`
+	OriginID         string            `json:"origin_id"`
+	ParentID         string            `json:"parent_id"`
+	Revision         int64             `json:"revision"`
+	Owner            string            `json:"owner"`
+	ClaimID          string            `json:"claim_id"`
+	Tags             []string          `json:"tags"`
+	Metadata         map[string]string `json:"metadata"`
+	Prerequisites    []string          `json:"prerequisites"`
+	Progress         string            `json:"progress"`
+	ProgressNoteID   string            `json:"progress_note_id,omitempty"`
+	ProgressAt       string            `json:"progress_at,omitempty"`
+	Result           string            `json:"result"`
+	CreatedAt        string            `json:"created_at"`
+	UpdatedAt        string            `json:"updated_at"`
+	LastActivityAt   string            `json:"last_activity_at"`
 }
 
 type CreateSpec struct {
+	Resources     []string          `json:"requires_resources,omitempty"`
 	Key           string            `json:"key,omitempty"`
 	Title         string            `json:"title"`
 	Brief         string            `json:"brief"`
@@ -97,6 +105,14 @@ type EvolveSpec struct {
 	ContinueWith string       `json:"continue_with,omitempty"`
 }
 
+const taskResourcesProjection = `
+ (SELECT json_group_array(name) FROM (SELECT r.name FROM task_resource_requirements req
+ JOIN resources r ON r.id=req.resource_id WHERE req.task_id=t.id ORDER BY r.name)),
+ (SELECT json_group_array(json_object('resource',name,'holder','T'||holder)) FROM (
+ SELECT r.name,h.task_id AS holder FROM task_resource_requirements req
+ JOIN resources r ON r.id=req.resource_id JOIN resource_holds h USING(resource_id)
+ WHERE req.task_id=t.id AND t.status='pending' ORDER BY r.name))`
+
 const taskProjection = `
  COALESCE(t.id,0),COALESCE(t.title,''),COALESCE(t.brief,''),COALESCE(t.status,''),
  COALESCE(t.origin_id,t.id,0),COALESCE(t.parent_id,0),COALESCE(t.revision,0),
@@ -104,7 +120,7 @@ const taskProjection = `
  COALESCE(t.created_at,''),COALESCE(t.updated_at,''),COALESCE(t.last_activity_at,''),
  (SELECT json_group_array(tag) FROM (SELECT tag FROM tags WHERE task_id=t.id ORDER BY tag)),
  (SELECT json_group_object(key,value) FROM (SELECT key,value FROM metadata WHERE task_id=t.id ORDER BY key)),
- (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id)),
+ (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id)),` + taskResourcesProjection + `,
  COALESCE((SELECT CASE WHEN deleted_at='' THEN id ELSE '' END FROM notes WHERE task_id=t.id ORDER BY event_id DESC LIMIT 1),''),
  COALESCE((SELECT CASE WHEN deleted_at='' THEN created_at ELSE '' END FROM notes WHERE task_id=t.id ORDER BY event_id DESC LIMIT 1),'')`
 
@@ -115,17 +131,17 @@ const listTaskProjection = `
  COALESCE(t.created_at,''),COALESCE(t.updated_at,''),COALESCE(t.last_activity_at,''),
  (SELECT json_group_array(tag) FROM (SELECT tag FROM tags WHERE task_id=t.id ORDER BY tag)),
  '{}',
- (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id)), '', ''`
+ (SELECT json_group_array('T'||prerequisite_id) FROM (SELECT prerequisite_id FROM prerequisites WHERE task_id=t.id ORDER BY prerequisite_id)),` + taskResourcesProjection + `, '', ''`
 
 type taskScanner interface{ Scan(...any) error }
 
 func scanTask(row taskScanner, prefix ...any) (Task, error) {
 	var t Task
 	var id, origin, parent int64
-	var tagsJSON, metadataJSON, prerequisitesJSON string
+	var tagsJSON, metadataJSON, prerequisitesJSON, resourcesJSON, blockersJSON string
 	dest := append(prefix, &id, &t.Title, &t.Brief, &t.Status, &origin, &parent,
 		&t.Revision, &t.Owner, &t.ClaimID, &t.Progress, &t.Result, &t.CreatedAt,
-		&t.UpdatedAt, &t.LastActivityAt, &tagsJSON, &metadataJSON, &prerequisitesJSON, &t.ProgressNoteID, &t.ProgressAt)
+		&t.UpdatedAt, &t.LastActivityAt, &tagsJSON, &metadataJSON, &prerequisitesJSON, &resourcesJSON, &blockersJSON, &t.ProgressNoteID, &t.ProgressAt)
 	if err := row.Scan(dest...); err != nil {
 		return Task{}, err
 	}
@@ -138,6 +154,12 @@ func scanTask(row taskScanner, prefix ...any) (Task, error) {
 		return Task{}, err
 	}
 	if err := json.Unmarshal([]byte(prerequisitesJSON), &t.Prerequisites); err != nil {
+		return Task{}, err
+	}
+	if err := json.Unmarshal([]byte(resourcesJSON), &t.Resources); err != nil {
+		return Task{}, err
+	}
+	if err := json.Unmarshal([]byte(blockersJSON), &t.ResourceBlockers); err != nil {
 		return Task{}, err
 	}
 	return t, nil
@@ -248,6 +270,18 @@ func normaliseSpec(spec CreateSpec, replacement bool) (CreateSpec, error) {
 			seen[p] = true
 		}
 	}
+	resourceNames := map[string]bool{}
+	for _, name := range spec.Resources {
+		name, err := validateLabel(name, "resource name")
+		if err != nil {
+			return CreateSpec{}, err
+		}
+		resourceNames[name] = true
+	}
+	for name := range resourceNames {
+		out.Resources = append(out.Resources, name)
+	}
+	sort.Strings(out.Resources)
 	return out, nil
 }
 
@@ -280,6 +314,15 @@ func (s *Store) insertTask(tx *sql.Tx, spec CreateSpec, origin, parent int64, no
 	}
 	for key, value := range spec.Metadata {
 		if _, err = tx.Exec("INSERT INTO metadata(task_id,key,value) VALUES(?,?,?)", id, key, value); err != nil {
+			return 0, err
+		}
+	}
+	for _, name := range spec.Resources {
+		resource, err := findResource(tx, name)
+		if err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec("INSERT OR IGNORE INTO task_resource_requirements(task_id,resource_id) VALUES(?,?)", id, resource); err != nil {
 			return 0, err
 		}
 	}
@@ -377,7 +420,8 @@ const availablePredicate = `t.status='pending' AND NOT EXISTS(
    UNION
    SELECT c.id,c.status FROM needed n JOIN tasks c ON c.parent_id=n.id WHERE n.status='superseded'
   ) SELECT 1 FROM needed n WHERE n.status IN ('pending','in_progress','cancelled')
-  OR (n.status='superseded' AND NOT EXISTS(SELECT 1 FROM tasks c WHERE c.parent_id=n.id)))))`
+  OR (n.status='superseded' AND NOT EXISTS(SELECT 1 FROM tasks c WHERE c.parent_id=n.id))))) AND NOT EXISTS(
+ SELECT 1 FROM task_resource_requirements req JOIN resource_holds h USING(resource_id) WHERE req.task_id=t.id)`
 
 func availableWith(q Queryer, id int64) (bool, error) {
 	var ready bool
@@ -393,14 +437,12 @@ func (s *Store) emitAvailableTasks(tx *sql.Tx, selection string, args ...any) er
 	return err
 }
 
-func (s *Store) emitCompletedDependents(tx *sql.Tx, id int64) error {
-	return s.emitAvailableTasks(tx, `t.id IN (
+const completedDependents = `t.id IN (
  WITH RECURSIVE ancestors(id,parent_id) AS (
   SELECT id,parent_id FROM tasks WHERE id=?
   UNION
   SELECT t.id,t.parent_id FROM ancestors a JOIN tasks t ON t.id=a.parent_id WHERE t.status='superseded'
- ) SELECT p.task_id FROM ancestors a JOIN prerequisites p ON p.prerequisite_id=a.id)`, id)
-}
+ ) SELECT p.task_id FROM ancestors a JOIN prerequisites p ON p.prerequisite_id=a.id)`
 
 func outcomeWith(q Queryer, id int64) (string, error) {
 	var outcome string
@@ -619,6 +661,9 @@ func (s *Store) Claim(id, session string) (Task, error) {
 			return err
 		}
 		claim, now := newID("C"), timestamp(s.Now())
+		if err := acquireResources(tx, n, claim); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(`UPDATE tasks SET status='in_progress',owner=?,claim_id=?,revision=revision+1,updated_at=?,last_activity_at=? WHERE id=?`, session, claim, now, now, n); err != nil {
 			return err
 		}
@@ -632,13 +677,17 @@ func (s *Store) Release(id, claim string) (Task, error) {
 		if err := requireCurrentClaim(t, claim); err != nil {
 			return err
 		}
+		released, err := clearResourceHolds(tx, n)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.Exec(`UPDATE tasks SET status='pending',owner='',claim_id='',revision=revision+1,updated_at=? WHERE id=?`, timestamp(s.Now()), n); err != nil {
 			return err
 		}
 		if _, err := s.emit(tx, n, "released", "Released by "+t.Owner+"; task is pending", map[string]any{"previous_owner": t.Owner, "previous_claim_id": claim}); err != nil {
 			return err
 		}
-		return s.emitAvailableTasks(tx, "t.id=?", n)
+		return s.emitAvailableTasks(tx, "t.id=? OR "+resourceWaiters, n, releasedResources(released))
 	})
 }
 
@@ -656,6 +705,9 @@ func (s *Store) Takeover(id, expectedClaim, session, reason string) (Task, error
 		}
 		claim, now := newID("C"), timestamp(s.Now())
 		if _, err := tx.Exec(`UPDATE tasks SET owner=?,claim_id=?,revision=revision+1,updated_at=?,last_activity_at=? WHERE id=?`, session, claim, now, now, n); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("UPDATE resource_holds SET claim_id=? WHERE task_id=?", claim, n); err != nil {
 			return err
 		}
 		_, err := s.emit(tx, n, "reassigned", reason, map[string]any{"previous_owner": t.Owner, "owner": session, "previous_claim_id": expectedClaim, "claim_id": claim})
@@ -709,6 +761,10 @@ func (s *Store) Complete(id, claim, summary string) (Task, error) {
 			return err
 		}
 		now := timestamp(s.Now())
+		released, err := clearResourceHolds(tx, n)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.Exec(`UPDATE tasks SET status='completed',owner='',claim_id='',result=?,revision=revision+1,updated_at=?,last_activity_at=? WHERE id=?`, summary, now, now, n); err != nil {
 			return err
 		}
@@ -718,7 +774,7 @@ func (s *Store) Complete(id, claim, summary string) (Task, error) {
 		if err := s.refreshScratch(tx, n); err != nil {
 			return err
 		}
-		return s.emitCompletedDependents(tx, n)
+		return s.emitAvailableTasks(tx, completedDependents+" OR "+resourceWaiters, n, releasedResources(released))
 	})
 }
 
@@ -731,13 +787,20 @@ func (s *Store) Cancel(id, claim, reason string) (Task, error) {
 			return err
 		}
 		now := timestamp(s.Now())
+		released, err := clearResourceHolds(tx, n)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.Exec(`UPDATE tasks SET status='cancelled',owner='',claim_id='',result=?,revision=revision+1,updated_at=?,last_activity_at=? WHERE id=?`, reason, now, now, n); err != nil {
 			return err
 		}
 		if _, err := s.emit(tx, n, "cancelled", reason, map[string]any{"previous_owner": t.Owner}); err != nil {
 			return err
 		}
-		return s.refreshScratch(tx, n)
+		if err := s.refreshScratch(tx, n); err != nil {
+			return err
+		}
+		return s.emitAvailableTasks(tx, resourceWaiters, releasedResources(released))
 	})
 }
 
@@ -1006,6 +1069,7 @@ func inheritSpec(original Task, child CreateSpec) CreateSpec {
 	}
 	child.Metadata = metadata
 	child.Prerequisites = append(append([]string{}, original.Prerequisites...), child.Prerequisites...)
+	child.Resources = append(append([]string{}, original.Resources...), child.Resources...)
 	return child
 }
 
@@ -1105,6 +1169,10 @@ func (s *Store) Evolve(id, claim string, revision int64, spec EvolveSpec) ([]Tas
 				}
 			}
 		}
+		released, err := clearResourceHolds(tx, n)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.Exec(`UPDATE tasks SET status='superseded',owner='',claim_id='',result=?,revision=revision+1,updated_at=?,last_activity_at=? WHERE id=?`, spec.Summary, now, now, n); err != nil {
 			return err
 		}
@@ -1130,6 +1198,9 @@ func (s *Store) Evolve(id, claim string, revision int64, spec EvolveSpec) ([]Tas
 				return err
 			}
 			newClaim := newID("C")
+			if err := acquireResources(tx, continued, newClaim); err != nil {
+				return err
+			}
 			if _, err := tx.Exec(`UPDATE tasks SET status='in_progress',owner=?,claim_id=?,revision=revision+1,last_activity_at=? WHERE id=?`, original.Owner, newClaim, now, continued); err != nil {
 				return err
 			}
@@ -1140,7 +1211,7 @@ func (s *Store) Evolve(id, claim string, revision int64, spec EvolveSpec) ([]Tas
 		if err := s.refreshScratch(tx, n); err != nil {
 			return err
 		}
-		if err := s.emitAvailableTasks(tx, "t.parent_id=?", n); err != nil {
+		if err := s.emitAvailableTasks(tx, "t.parent_id=? OR "+resourceWaiters, n, releasedResources(released)); err != nil {
 			return err
 		}
 		result = make([]Task, 0, len(ids))

@@ -82,6 +82,7 @@ var flagSpecs = map[string]flagSpec{
 	"project":           {"string", "Select a project by ID", false},
 	"reason":            {"string", "Reason to record in the task's event history", false},
 	"request-id":        {"string", "Retry key for idempotent creation", false},
+	"requires-resource": {"string", "Exclusive resource required at claim time (repeatable)", true},
 	"resume":            {"bool", "Allow Codex to resume an idle session", false},
 	"revision":          {"int", "Expected task revision from tasks show", false},
 	"session":           {"string", "Session identifier", false},

@@ -14,14 +14,15 @@ import (
 )
 
 type listItem struct {
-	ID             string   `json:"id"`
-	Title          string   `json:"title"`
-	Status         string   `json:"status"`
-	OriginID       string   `json:"origin_id"`
-	Owner          string   `json:"owner,omitempty"`
-	Tags           []string `json:"tags"`
-	LastActivityAt string   `json:"last_activity_at,omitempty"`
-	Revision       int64    `json:"revision"`
+	ResourceBlockers []store.ResourceBlocker `json:"resource_blockers,omitempty"`
+	ID               string                  `json:"id"`
+	Title            string                  `json:"title"`
+	Status           string                  `json:"status"`
+	OriginID         string                  `json:"origin_id"`
+	Owner            string                  `json:"owner,omitempty"`
+	Tags             []string                `json:"tags"`
+	LastActivityAt   string                  `json:"last_activity_at,omitempty"`
+	Revision         int64                   `json:"revision"`
 }
 
 func (a *app) taskResult(t store.Task) error {
@@ -62,7 +63,7 @@ func (a *app) tasks() error {
 			}
 			meta[k] = v
 		}
-		t, err := a.s.CreateWithRequest(store.CreateSpec{Title: title, Brief: brief, Tags: a.o.values["tag"], Metadata: meta, Prerequisites: a.o.values["prerequisite"]}, a.o.get("request-id"))
+		t, err := a.s.CreateWithRequest(store.CreateSpec{Title: title, Brief: brief, Tags: a.o.values["tag"], Metadata: meta, Prerequisites: a.o.values["prerequisite"], Resources: a.o.values["requires-resource"]}, a.o.get("request-id"))
 		if err != nil {
 			return err
 		}
@@ -125,6 +126,9 @@ func (a *app) tasks() error {
 		}
 		if len(t.Prerequisites) > 0 {
 			fmt.Fprintln(a.out, "prerequisites:", strings.Join(t.Prerequisites, ", "))
+		}
+		if len(t.Resources) > 0 {
+			fmt.Fprintln(a.out, "required resources:", strings.Join(t.Resources, ", "))
 		}
 		fmt.Fprintln(a.out, "\n"+t.Brief)
 		if t.Progress != "" {
@@ -236,6 +240,12 @@ func (a *app) tasks() error {
 		t, e := a.s.Reopen(id, a.o.get("reason"))
 		if e != nil {
 			return e
+		}
+		return a.taskResult(t)
+	case "require-resource", "unrequire-resource":
+		t, err := a.s.SetResourceRequirement(id, a.args[1], op == "unrequire-resource")
+		if err != nil {
+			return err
 		}
 		return a.taskResult(t)
 	case "edit":
@@ -436,7 +446,7 @@ func (a *app) listTasks(op string) error {
 	}
 	rows := make([]listItem, 0, len(items))
 	for _, t := range items {
-		r := listItem{ID: t.ID, Title: t.Title, Status: t.Status, OriginID: t.OriginID, Tags: t.Tags, Revision: t.Revision}
+		r := listItem{ID: t.ID, Title: t.Title, Status: t.Status, OriginID: t.OriginID, Tags: t.Tags, Revision: t.Revision, ResourceBlockers: t.ResourceBlockers}
 		if t.Status == "in_progress" {
 			r.Owner = t.Owner
 			r.LastActivityAt = t.LastActivityAt
@@ -458,6 +468,11 @@ func (a *app) listTasks(op string) error {
 	}
 	if err = w.Flush(); err != nil {
 		return err
+	}
+	for _, t := range rows {
+		for _, blocker := range t.ResourceBlockers {
+			fmt.Fprintf(a.out, "%s waits for resource %s held by %s\n", t.ID, blocker.Resource, blocker.Holder)
+		}
 	}
 	if omitted > 0 {
 		fmt.Fprintln(a.out, strconv.Itoa(omitted)+" more; use --offset "+strconv.Itoa(int(offset)+len(rows)))
