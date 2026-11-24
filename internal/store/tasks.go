@@ -61,8 +61,9 @@ CREATE TABLE IF NOT EXISTS create_requests (
 `
 
 type ResourceBlocker struct {
-	Resource string `json:"resource"`
-	Holder   string `json:"holder"`
+	Resource       string `json:"resource"`
+	Holder         string `json:"holder"`
+	LastActivityAt string `json:"last_activity_at,omitempty"`
 }
 
 type Task struct {
@@ -687,7 +688,7 @@ func (s *Store) Release(id, claim string) (Task, error) {
 		if _, err := s.emit(tx, n, "released", "Released by "+t.Owner+"; task is pending", map[string]any{"previous_owner": t.Owner, "previous_claim_id": claim}); err != nil {
 			return err
 		}
-		return s.emitAvailableTasks(tx, "t.id=? OR "+resourceWaiters, n, releasedResources(released))
+		return s.emitResourceAvailability(tx, released, "t.id=?", n)
 	})
 }
 
@@ -774,7 +775,7 @@ func (s *Store) Complete(id, claim, summary string) (Task, error) {
 		if err := s.refreshScratch(tx, n); err != nil {
 			return err
 		}
-		return s.emitAvailableTasks(tx, completedDependents+" OR "+resourceWaiters, n, releasedResources(released))
+		return s.emitResourceAvailability(tx, released, completedDependents, n)
 	})
 }
 
@@ -800,7 +801,7 @@ func (s *Store) Cancel(id, claim, reason string) (Task, error) {
 		if err := s.refreshScratch(tx, n); err != nil {
 			return err
 		}
-		return s.emitAvailableTasks(tx, resourceWaiters, releasedResources(released))
+		return s.emitResourceAvailability(tx, released, "")
 	})
 }
 
@@ -1211,7 +1212,7 @@ func (s *Store) Evolve(id, claim string, revision int64, spec EvolveSpec) ([]Tas
 		if err := s.refreshScratch(tx, n); err != nil {
 			return err
 		}
-		if err := s.emitAvailableTasks(tx, "t.parent_id=? OR "+resourceWaiters, n, releasedResources(released)); err != nil {
+		if err := s.emitResourceAvailability(tx, released, "t.parent_id=?", n); err != nil {
 			return err
 		}
 		result = make([]Task, 0, len(ids))

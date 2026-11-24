@@ -128,7 +128,7 @@ func (s *Store) ReleaseResource(name, claim string) error {
 		if _, err = s.emit(tx, task, "resource_released", name, map[string]string{"resource": name}); err != nil {
 			return err
 		}
-		return s.emitAvailableTasks(tx, resourceWaiters, releasedResources([]int64{resource}))
+		return s.emitResourceAvailability(tx, []int64{resource}, "")
 	})
 }
 
@@ -179,10 +179,32 @@ func clearResourceHolds(tx *sql.Tx, task int64) ([]int64, error) {
 	return ids, rows.Err()
 }
 
-const resourceWaiters = `t.id IN (SELECT task_id FROM task_resource_requirements
- WHERE resource_id IN (SELECT value FROM json_each(?)))`
-
-func releasedResources(ids []int64) string {
-	data, _ := json.Marshal(ids)
-	return string(data)
+// Include ordinary task transitions in the same insert so a waiter gets
+// one event even when a single operation satisfies several prerequisites.
+func (s *Store) emitResourceAvailability(tx *sql.Tx, ids []int64, selection string, args ...any) error {
+	if len(ids) == 0 {
+		if selection == "" {
+			return nil
+		}
+		return s.emitAvailableTasks(tx, selection, args...)
+	}
+	resources, err := json.Marshal(ids)
+	if err != nil {
+		return err
+	}
+	candidates := "EXISTS(SELECT 1 FROM released WHERE task_id=t.id)"
+	if selection != "" {
+		candidates += " OR (" + selection + ")"
+	}
+	args = append([]any{string(resources), timestamp(s.Now())}, args...)
+	_, err = tx.Exec(`WITH released AS (
+ SELECT req.task_id,r.name FROM json_each(?) ids
+ JOIN resources r ON r.id=ids.value JOIN task_resource_requirements req ON req.resource_id=r.id
+ )
+ INSERT INTO events(task_id,kind,message,data,created_at)
+ SELECT t.id,'available',COALESCE(
+  (SELECT 'Ready to claim after resource release: '||group_concat(name,', ' ORDER BY name)
+   FROM released WHERE task_id=t.id),'Ready to claim'),'{}',?
+ FROM tasks t WHERE (`+candidates+") AND "+availablePredicate+" ORDER BY t.id", args...)
+	return err
 }

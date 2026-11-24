@@ -273,6 +273,12 @@ func formatSnapshot(snapshot store.Snapshot) string {
 		if (task.Status == "completed" || task.Status == "cancelled") && task.Result != "" {
 			fmt.Fprintf(&out, "; result: %q", shortText(task.Result, 160))
 		}
+		for _, blocker := range task.ResourceBlockers {
+			fmt.Fprintf(&out, "; waiting for resource %q held by %s", shortText(blocker.Resource, 120), blocker.Holder)
+			if blocker.LastActivityAt != "" {
+				fmt.Fprintf(&out, " (holder last active %s)", blocker.LastActivityAt)
+			}
+		}
 		out.WriteByte('\n')
 		shown++
 	}

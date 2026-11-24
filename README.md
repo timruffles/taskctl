@@ -266,6 +266,8 @@ Repeat `--requires-resource` for tasks that need several resources. A claim acqu
 
 Completing, cancelling, evolving or releasing a claim hands back its resources. Replacements inherit the original task’s resource requirements. An evolution continuation acquires its requirements with its fresh claim. Use `resources release RESOURCE --claim CLAIM_TOKEN` to hand back a resource early and continue working on the same task. Takeover transfers any remaining holds to the new claim token. Before taking over a task controlling an external tool, stop or isolate the old worker so it can no longer operate the tool directly.
 
+Codex hook snapshots show the resource holder and its last task activity for subscribed blocked tasks. When a resource release makes a task claimable, the availability event names the released resource. Activity helps a lead investigate stale holds. Restarting taskctl leaves holds in place.
+
 Resource coordination is scoped to one taskctl project. Existing stores upgrade to schema 3. Stop older taskctl processes and upgrade the workers that share a store before using resources. Backups preserve resource names and requirements. Restoring a backup clears active claims and holds.
 
 ## Watch work and notify agents

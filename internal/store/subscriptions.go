@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -24,14 +25,15 @@ type Subscription struct {
 }
 
 type TaskState struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Status    string `json:"status"`
-	Available bool   `json:"available"`
-	Owner     string `json:"owner,omitempty"`
-	Progress  string `json:"progress,omitempty"`
-	Result    string `json:"result,omitempty"`
-	UpdatedAt string `json:"updated_at"`
+	ResourceBlockers []ResourceBlocker `json:"resource_blockers,omitempty"`
+	ID               string            `json:"id"`
+	Title            string            `json:"title"`
+	Status           string            `json:"status"`
+	Available        bool              `json:"available"`
+	Owner            string            `json:"owner,omitempty"`
+	Progress         string            `json:"progress,omitempty"`
+	Result           string            `json:"result,omitempty"`
+	UpdatedAt        string            `json:"updated_at"`
 }
 
 type Snapshot struct {
@@ -244,7 +246,12 @@ func readSnapshot(q Queryer, id int64, summary bool) (Snapshot, error) {
 		projection = `t.id,substr(t.title,1,256),t.status,substr(t.owner,1,128),substr(t.progress,1,120),substr(t.result,1,1024),t.updated_at,
  octet_length(t.title)>octet_length(substr(t.title,1,256)) OR octet_length(t.owner)>octet_length(substr(t.owner,1,128)) OR octet_length(t.progress)>octet_length(substr(t.progress,1,120)) OR octet_length(t.result)>octet_length(substr(t.result,1,1024))`
 	}
-	rows, err := q.Query(descendantScope+`SELECT `+projection+`,(`+availablePredicate+`)
+	rows, err := q.Query(descendantScope+`SELECT `+projection+`,(`+availablePredicate+`),
+ (SELECT json_group_array(json_object('resource',name,'holder','T'||holder,'last_activity_at',activity)) FROM (
+ SELECT r.name,h.task_id AS holder,owner.last_activity_at AS activity
+ FROM task_resource_requirements req JOIN resource_holds h USING(resource_id)
+ JOIN resources r ON r.id=req.resource_id JOIN tasks owner ON owner.id=h.task_id
+ WHERE req.task_id=t.id AND t.status='pending' ORDER BY r.name LIMIT 3))
  FROM tasks t JOIN scope s ON t.id=s.id WHERE t.status<>'superseded'
  ORDER BY CASE WHEN t.status IN ('pending','in_progress') THEN 0 ELSE 1 END,t.id LIMIT 20`, id)
 	if err != nil {
@@ -255,7 +262,11 @@ func readSnapshot(q Queryer, id int64, summary bool) (Snapshot, error) {
 		var task TaskState
 		var n int64
 		var truncated bool
-		if err := rows.Scan(&n, &task.Title, &task.Status, &task.Owner, &task.Progress, &task.Result, &task.UpdatedAt, &truncated, &task.Available); err != nil {
+		var blockers string
+		if err := rows.Scan(&n, &task.Title, &task.Status, &task.Owner, &task.Progress, &task.Result, &task.UpdatedAt, &truncated, &task.Available, &blockers); err != nil {
+			return result, err
+		}
+		if err := json.Unmarshal([]byte(blockers), &task.ResourceBlockers); err != nil {
 			return result, err
 		}
 		task.ID = taskID(n)

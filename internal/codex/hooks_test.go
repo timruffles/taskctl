@@ -348,3 +348,53 @@ func TestSessionStartRefreshesResumedChildBeforeInactivityScan(t *testing.T) {
 		t.Fatalf("fresh resumed child produced notification noise: %s %v", output.String(), err)
 	}
 }
+
+func TestHookReportsResourceHolderAndAvailability(t *testing.T) {
+	s := hookStore(t)
+	if _, err := s.CreateResource("unity-main"); err != nil {
+		t.Fatal(err)
+	}
+	spec := store.CreateSpec{Title: "Check native UI", Resources: []string{"unity-main"}}
+	first, err := s.Create(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	holder, err := s.Claim(first.ID, "editor worker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter, err := s.Create(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := s.Subscribe(waiter.ID, "lead", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const input = `{"hook_event_name":"PostToolUse","session_id":"lead","tool_name":"exec_command"}`
+	var output bytes.Buffer
+	if err := Handle(s, strings.NewReader(input), &output, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	message := hookContext(t, output.Bytes(), "PostToolUse")
+	if !strings.Contains(message, `waiting for resource "unity-main" held by `+holder.ID) ||
+		!strings.Contains(message, "holder last active "+holder.LastActivityAt) {
+		t.Fatalf("hook omitted the blocker or holder activity: %s", message)
+	}
+
+	token, through := currentDelivery(t, s, sub)
+	if err := s.Acknowledge(sub.ID, "lead", token, through); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ReleaseResource("unity-main", holder.ClaimID); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	if err := Handle(s, strings.NewReader(input), &output, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	message = hookContext(t, output.Bytes(), "PostToolUse")
+	if !strings.Contains(message, waiter.ID+` available: "Ready to claim after resource release: unity-main"`) {
+		t.Fatalf("hook omitted the resource that became available: %s", message)
+	}
+}
